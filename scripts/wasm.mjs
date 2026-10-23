@@ -1,9 +1,16 @@
 // Minimal binary inspection for build invariants, not a runtime dependency.
 import assert from 'node:assert/strict';
 
+// Chrome 75: memory.copy/fill, saturating conversions and sign extension.
+// Keep the compiler/SDK metadata separate from the final runtime requirement.
+export const targetFeatures = Object.freeze(['+bulk-memory-opt', '+nontrapping-fptoint', '+sign-ext']);
+const sdkFeatures = [...targetFeatures, '+bulk-memory', '+call-indirect-overlong',
+  '+extended-const', '+multivalue', '+mutable-globals', '+reference-types'];
+
 function reader(bytes) {
   let offset = 0;
   return {
+    get offset() { return offset; },
     get done() { return offset === bytes.length; },
     byte() { assert(offset < bytes.length, 'Truncated Wasm'); return bytes[offset++]; },
     uint() {
@@ -58,34 +65,52 @@ export function inspect(bytes) {
   return { module, exports, bodies, imports, features: features.sort(), start, memories };
 }
 
-export function audit(bytes, expectedExports) {
+export function audit(bytes, expectedExports, { linked = false } = {}) {
+  // Structural/metadata checks. Build and audit tests additionally validate the
+  // actual instructions with Binaryen after stripping SDK feature metadata.
   const info = inspect(bytes);
   assert.deepEqual(info.imports, [], 'Host imports are forbidden');
   assert.equal(info.start, false, 'Start functions are forbidden');
   assert.equal(info.memories, 1);
   assert.deepEqual([...info.exports.keys()].sort(), [...expectedExports].sort(), 'Unexpected exports');
   for (const name of expectedExports) assert.equal(info.exports.get(name).kind, name === 'memory' ? 2 : 0);
-  binaryenFlags(info.features);
+  checkFeatures(info.features, linked ? sdkFeatures : targetFeatures);
+  if (!linked) assert.deepEqual(info.features, targetFeatures, 'Unexpected runtime feature baseline');
   return info;
 }
 
-// Reset Binaryen's defaults, then enable exactly the linked SDK baseline. This
-// validates instructions too, including features missing from custom metadata;
-// it does not change the compiler target or downgrade the module to MVP.
-export function binaryenFlags(features) {
-  const names = new Map([
-    ['bulk-memory', 'bulk-memory'], ['bulk-memory-opt', 'bulk-memory-opt'],
-    ['call-indirect-overlong', 'call-indirect-overlong'], ['extended-const', 'extended-const'],
-    ['multivalue', 'multivalue'], ['mutable-globals', 'mutable-globals'],
-    ['nontrapping-fptoint', 'nontrapping-float-to-int'], ['reference-types', 'reference-types'],
-    ['sign-ext', 'sign-ext'],
-  ]);
-  assert(features.length > 0, 'Missing SDK target_features baseline');
+function checkFeatures(features, allowed) {
+  assert(features.length > 0, 'Missing target_features baseline');
   assert.equal(new Set(features).size, features.length, 'Duplicate feature metadata');
-  return ['--mvp-features', ...features.map(feature => {
-    assert(feature[0] === '+' && names.has(feature.slice(1)), `Unapproved feature: ${feature}`);
-    return `--enable-${names.get(feature.slice(1))}`;
-  })];
+  for (const feature of features) assert(allowed.includes(feature), `Unapproved feature: ${feature}`);
+}
+
+// Binaryen reads input target_features and can expand its enabled feature set.
+// Remove that metadata BEFORE invoking it with the explicit runtime limit. All
+// instruction/section bytes remain unchanged; unsupported instructions must fail
+// validation. Binaryen emits fresh metadata for the validated final feature set.
+export function stripTargetFeatures(bytes) {
+  assert.deepEqual([...bytes.subarray(0, 8)], [0, 97, 115, 109, 1, 0, 0, 0]);
+  const sections = reader(bytes.subarray(8)), parts = [bytes.subarray(0, 8)];
+  while (!sections.done) {
+    const start = sections.offset, id = sections.byte();
+    const part = sections.take(sections.uint());
+    if (id !== 0 || reader(part).string() !== 'target_features')
+      parts.push(bytes.subarray(start + 8, sections.offset + 8));
+  }
+  const result = new Uint8Array(parts.reduce((length, part) => length + part.length, 0));
+  let offset = 0;
+  for (const part of parts) { result.set(part, offset); offset += part.length; }
+  return result;
+}
+
+export function binaryenFlags(features = targetFeatures) {
+  checkFeatures(features, targetFeatures);
+  const names = new Map([
+    ['bulk-memory-opt', 'bulk-memory-opt'],
+    ['nontrapping-fptoint', 'nontrapping-float-to-int'], ['sign-ext', 'sign-ext'],
+  ]);
+  return ['--mvp-features', ...features.map(feature => `--enable-${names.get(feature.slice(1))}`)];
 }
 
 export function auditLinkMap(map) {

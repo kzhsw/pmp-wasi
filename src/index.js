@@ -14,7 +14,8 @@ export async function instantiate(source) {
   const module = source instanceof WebAssembly.Module ? source : await WebAssembly.compile(source);
   if (WebAssembly.Module.imports(module).length) throw new TypeError('Expected a freestanding PMP module');
   const { exports } = await WebAssembly.instantiate(module, {});
-  if (exports.pmp_abi_version?.() !== 0) throw new TypeError('Unsupported development ABI');
+  if (typeof exports.pmp_abi_version !== 'function' || exports.pmp_abi_version() !== 0)
+    throw new TypeError('Unsupported development ABI');
   return exports;
 }
 

@@ -51,7 +51,7 @@ export async function runScenario(source, nativeFixtures, expectedExports) {
   };
   const faces = (e, mesh, polygons) => {
     const offsets = [0];
-    for (const face of polygons) offsets.push(offsets.at(-1) + face.length);
+    for (const face of polygons) offsets.push(offsets[offsets.length - 1] + face.length);
     const indices = upload(e, Uint32Array, polygons.flat()), starts = upload(e, Uint32Array, offsets);
     e.pmp_mesh_add_faces(mesh, indices, starts, polygons.length);
     e.pmp_free(indices);
@@ -287,7 +287,7 @@ export async function runScenario(source, nativeFixtures, expectedExports) {
       meshView(e, b).positions.set(triangle);
       equal(e.pmp_mesh_add_triangle(b, 0, 1, 2), 0, 'reused face index');
       output.push(normal(e, b, 'face', 0));
-      near(output.at(-1), [0, 0, 1], 'reused mesh normal');
+      near(output[output.length - 1], [0, 0, 1], 'reused mesh normal');
       e.pmp_mesh_destroy(b);
     }
     return { lifetimes: output.length * 2, reusedNormals: output };

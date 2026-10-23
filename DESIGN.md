@@ -391,20 +391,28 @@ pthread/OpenMP libraries, or `-pthread`. Keep linker maps and symbol information
 for auditing before stripping release output. Use one Binaryen `-O3` pass and
 strip debug, names and producer metadata after validation.
 
-**v1 uses the feature baseline of the chosen SDK compiler and linked libc
-objects.** Do not force MVP, enable SIMD/relaxed SIMD, use `--all-features`, or
-hand-select a different target CPU. Record module `target_features` and feed
-the same allowed feature set to Binaryen. Fail if the result adds features,
-atomics, shared memory, or a different memory model. Retained feature metadata
-is a conservative compatibility baseline, not proof every feature is used.
+**The current runtime target is Chrome 75/76.** This supersedes the initial
+policy of inheriting the SDK's full feature metadata. Keep the existing SDK 32,
+but compile and LTO-link with `-mcpu=mvp -mbulk-memory-opt
+-mnontrapping-fptoint -msign-ext`. These instructions all fit Chrome 75.
 
-The SDK 32 core probe reports mutable-globals, nontrapping-fptoint, bulk-memory,
-sign-ext, reference-types, multivalue and extended-const. Binaryen also reports
-bulk-memory-opt and call-indirect-overlong as feature/encoding switches. Record
-the full module's final baseline when all algorithms are linked; do not infer
-it from the SDK version alone. Keep nontrapping-fptoint enabled: it is part of
-SDK 32's baseline and is used by emitted saturating conversions. The compatibility
-and SIMD decision are recorded in [COMPATIBILITY.md](COMPATIBILITY.md).
+Keep the linked SDK feature metadata as build evidence, separate from the
+runtime requirements. Remove its `target_features` custom section before the
+Binaryen passes; otherwise Binaryen can re-enable features from that metadata.
+Validate and write with only MVP plus memory.copy/fill, saturating conversions
+and sign extension, and emit fresh target metadata. Reject unsupported actual
+instructions, not just unknown feature names. Negative fixtures cover extended
+constants, reference types, multivalue and SIMD; also verify the legacy single
+zero byte for indirect-call table indices. The final artifact must advertise
+exactly the intended three features. Keep no `--all-features`, shared memory,
+atomics, relaxed SIMD or a silently widened compatibility target.
+
+No numerical code depends on extended constants, reference types or multivalue.
+Nontrapping conversions remain enabled because Chrome 75 supports them. The
+ES2017 JS wrapper no longer uses optional chaining. Actual Chrome 75/76 execution
+is not yet certified; current Node/Chromium runs plus strict binary validation
+establish the feature-based target. [COMPATIBILITY.md](COMPATIBILITY.md) records
+primary browser support sources, tested runtimes, limits and the SIMD decision.
 
 Do not enable fast-math: PMP uses finite/degenerate checks and numerically
 sensitive solvers. Preserve upstream double precision. Later benchmark `-O3`

@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
-import { audit, auditLinkMap, binaryenFlags } from './wasm.mjs';
+import { audit, auditLinkMap, binaryenFlags, stripTargetFeatures, targetFeatures } from './wasm.mjs';
 import { verifyVendor } from './vendor.mjs';
 
 const root = resolve(import.meta.dirname, '..');
@@ -37,7 +37,8 @@ const sources = ['src/core.cpp', 'src/algorithms.cpp', 'src/runtime.cpp', 'vendo
     'remeshing', 'curvature', 'smoothing', 'laplace', 'numerics', 'differential_geometry',
     'fairing', 'hole_filling'].map(name => `vendor/pmp/algorithms/${name}.cpp`)];
 mkdirSync('build', { recursive: true });
-const flags = ['-std=c++20', '-O3', '-flto', '-ffreestanding', '-fno-exceptions', '-fno-rtti',
+const targetFlags = ['-mcpu=mvp', '-mbulk-memory-opt', '-mnontrapping-fptoint', '-msign-ext'];
+const flags = [...targetFlags, '-std=c++20', '-O3', '-flto', '-ffreestanding', '-fno-exceptions', '-fno-rtti',
   '-ffunction-sections', '-fdata-sections', '-DNDEBUG', '-DEIGEN_DONT_PARALLELIZE',
   '-Wall', '-Wextra', '-Werror', '-Iinclude', '-Ivendor', '-isystem', 'vendor/eigen'];
 const objects = sources.map((source, i) => {
@@ -45,22 +46,24 @@ const objects = sources.map((source, i) => {
   run(cxx, [...flags, '-MMD', '-MF', `build/${i}.d`, '-c', source, '-o', object]);
   return object;
 });
-run(cxx, ['-O3', '-flto', '-nostartfiles', ...objects, '-o', 'build/core.link.wasm',
+run(cxx, [...targetFlags, '-O3', '-flto', '-nostartfiles', ...objects, '-o', 'build/core.link.wasm',
   '-Wl,--no-entry,--export-memory,--gc-sections,--export=__wasm_call_ctors,-Map=build/core.map,--why-extract=build/archives.tsv',
   ...exports.filter(name => name !== 'memory').map(name => `-Wl,--export=${name}`)]);
 auditLinkMap(readFileSync('build/core.map', 'utf8'));
-const linked = audit(readFileSync('build/core.link.wasm'), [...exports, '__wasm_call_ctors']);
-const featureFlags = binaryenFlags(linked.features);
+const linkedBytes = readFileSync('build/core.link.wasm');
+const linked = audit(linkedBytes, [...exports, '__wasm_call_ctors'], { linked: true });
+const featureFlags = binaryenFlags();
 const ctor = linked.exports.get('__wasm_call_ctors');
 assert.deepEqual([...linked.bodies[ctor.index]], [0, 11], 'Refusing to remove a nonempty constructor');
 const graph = [...linked.exports.keys()].map(name => name === '__wasm_call_ctors'
   ? { name, export: name } : { name, export: name, root: true });
 writeFileSync('build/graph.json', JSON.stringify(graph));
-run(join(binaryen, 'bin/wasm-metadce'), ['build/core.link.wasm', ...featureFlags, '--graph-file=build/graph.json', '-o', 'build/core.pruned.wasm']);
-run(join(binaryen, 'bin/wasm-opt'), ['build/core.pruned.wasm', ...featureFlags, '-O3', '--strip-debug', '--strip-producers', '--strip-dwarf', '-o', 'build/core.optimized.wasm']);
+writeFileSync('build/core.target.wasm', stripTargetFeatures(linkedBytes));
+run(join(binaryen, 'bin/wasm-metadce'), ['build/core.target.wasm', ...featureFlags, '--graph-file=build/graph.json', '--emit-target-features', '-o', 'build/core.pruned.wasm']);
+run(join(binaryen, 'bin/wasm-opt'), ['build/core.pruned.wasm', ...featureFlags, '-O3', '--emit-target-features', '--strip-debug', '--strip-producers', '--strip-dwarf', '-o', 'build/core.optimized.wasm']);
 const bytes = readFileSync('build/core.optimized.wasm');
 const final = audit(bytes, exports);
-assert.deepEqual(final.features, linked.features, 'Optimization changed the SDK feature baseline');
+assert.deepEqual(final.features, targetFeatures, 'Unexpected Chrome 75 feature baseline');
 const instance = new WebAssembly.Instance(final.module, {});
 assert.equal(instance.exports.pmp_abi_version(), 0);
 const mesh = instance.exports.pmp_mesh_create();
@@ -68,6 +71,7 @@ instance.exports.pmp_mesh_destroy(mesh);
 copyFileSync('build/core.optimized.wasm', 'build/pmp-core.wasm');
 const report = { bytes: bytes.length, gzipBytes: gzipSync(bytes).length,
   sha256: createHash('sha256').update(bytes).digest('hex'), jsBytes: readFileSync('src/index.js').length,
-  features: final.features, exports: exports.length, imports: [], sources, toolchain };
+  features: final.features, linkedFeatures: linked.features, targetFlags,
+  exports: exports.length, imports: [], sources, toolchain };
 writeFileSync('build/report.json', JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report, null, 2));

@@ -47,7 +47,7 @@ baselines with a host compiler and the pinned, unmodified checkout selected by
 The build writes `build/pmp-core.wasm` and `build/report.json`. It uses no network,
 checks exact exports, rejects host imports and live I/O/runtime symbols, proves
 the unused constructor empty before removing it, and validates instructions
-against the linked SDK feature baseline. No WASI host or initialization call is
+against the Chrome 75 feature limit. No WASI host or initialization call is
 needed. Node/browser tests exercise all ten algorithm entry points, native
 reference results, repeated operations, seams, attributes, winding, memory
 growth, traps and remeshing's numerical fallback.
@@ -62,5 +62,5 @@ multiple attributes and preflight use.
 Borrowed arrays must be reacquired after allocation or mutation, including
 helper metadata allocations. Discard the entire instance after a trap.
 [DESIGN.md](DESIGN.md) specifies ownership, preconditions and source boundaries;
-[COMPATIBILITY.md](COMPATIBILITY.md) records Wasm/JS requirements and tested
-runtimes. [upstream.json](upstream.json) pins the reviewed sources.
+[COMPATIBILITY.md](COMPATIBILITY.md) records the Chrome 75/76 feature target,
+Wasm/JS requirements and tested runtimes. [upstream.json](upstream.json) pins the reviewed sources.

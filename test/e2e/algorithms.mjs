@@ -46,12 +46,12 @@ export async function runAlgorithms(source, fixtures) {
     equal(e.pmp_mesh_add_vertices(mesh, input.positions.length / 3), 0, 'first new vertex');
     meshView(e, mesh).positions.set(input.positions);
     const offsets = [0];
-    for (const face of input.faces) offsets.push(offsets.at(-1) + face.length);
+    for (const face of input.faces) offsets.push(offsets[offsets.length - 1] + face.length);
     const indices = upload(e, input.faces.flat()), starts = upload(e, offsets);
     e.pmp_mesh_add_faces(mesh, indices, starts, input.faces.length);
     e.pmp_free(indices);
     e.pmp_free(starts);
-    if (input.featureEdges?.length) {
+    if (input.featureEdges && input.featureEdges.length) {
       attributeView(e, mesh, 'v:feature', Property.BOOL, Domain.VERTEX, true);
       attributeView(e, mesh, 'e:feature', Property.BOOL, Domain.EDGE, true);
       const markedEdges = input.featureEdges.map(([a, b]) => halfedge(meshView(e, mesh), a, b) >> 1);
@@ -171,7 +171,7 @@ export async function runAlgorithms(source, fixtures) {
       const incidence = new Map();
       for (const face of fixture.input.faces) for (let i = 0; i < face.length; ++i) {
         const a = face[i], b = face[(i + 1) % face.length], key = `${Math.min(a, b)},${Math.max(a, b)}`;
-        incidence.set(key, (incidence.get(key) ?? 0) + 1);
+        incidence.set(key, (incidence.get(key) || 0) + 1);
       }
       const originalBoundary = [...incidence.values()].filter(count => count === 1).length;
       check(output.boundaryEdges < originalBoundary, `${fixture.name}: hole filling reduces the open boundary`);
