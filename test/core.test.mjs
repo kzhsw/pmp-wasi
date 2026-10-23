@@ -144,6 +144,7 @@ test('core binary has exactly the development exports and no host or initializat
   const e = await instantiate(wasm);
   assert.equal(e.pmp_abi_version(), 0);
   assert(e.memory instanceof WebAssembly.Memory);
+  assert.equal(e.memory.buffer.byteLength, 65536, 'production starts with one Wasm page');
   assert(!(e.memory.buffer instanceof SharedArrayBuffer));
 });
 

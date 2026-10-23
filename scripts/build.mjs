@@ -23,6 +23,7 @@ export function build(options = {}) {
   const heapScratch = options.heapScratch ?? true;
   const alignedMalloc = options.alignedMalloc ?? true;
   const stackFirst = options.stackFirst ?? true;
+  const stackBytes = 16 * 1024;
   assert(['-O2', '-O3', '-Os', '-Oz'].includes(compileOpt));
   assert([undefined, 0, 1, 2, 3].includes(linkOpt) && [undefined, 0, 1, 2, 3].includes(codegenOpt));
   const sdk = process.env.WASI_SDK_PATH;
@@ -66,7 +67,7 @@ export function build(options = {}) {
   const flags = [...targetFlags, '-std=c++20', compileOpt, '-flto', '-ffreestanding', '-fno-exceptions', '-fno-rtti',
     '-ffunction-sections', '-fdata-sections', '-DNDEBUG', '-DEIGEN_DONT_PARALLELIZE',
     '-Wall', '-Wextra', '-Werror', '-Iinclude', '-Ivendor', '-isystem', 'vendor/eigen'];
-  // Eigen's default 128 KiB alloca limit exceeds the 64 KiB Wasm stack.
+  // Eigen's default 128 KiB alloca limit exceeds the 16 KiB Wasm stack.
   // Limit=0 moves positive dynamic buffers to the heap; EIGEN_NO_ALLOCA alone
   // does not compile this Eigen version's triangular matrix/vector templates.
   if (heapScratch) flags.push('-DEIGEN_STACK_ALLOCATION_LIMIT=0');
@@ -107,7 +108,7 @@ export function build(options = {}) {
     objects.push(object);
   }
   run(cxx, [...targetFlags, compileOpt, '-flto', '-nostartfiles', ...objects, '-o', file('core.link.wasm'),
-    '-Wl,--no-entry,--export-memory,--gc-sections,--export=__wasm_call_ctors' +
+    `-Wl,--no-entry,--export-memory,--gc-sections,--export=__wasm_call_ctors,-z,stack-size=${stackBytes}` +
     (stackFirst ? ',--stack-first' : '') +
     (linkOpt === undefined ? '' : `,--lto-O${linkOpt}`) +
     (codegenOpt === undefined ? '' : `,--lto-CGO${codegenOpt}`) +
@@ -138,7 +139,7 @@ export function build(options = {}) {
     sha256: createHash('sha256').update(bytes).digest('hex'), jsBytes: readFileSync('src/index.js').length,
     features: final.features, linkedFeatures: linked.features, targetFlags,
     exports: allExports.length, imports: [], sources, toolchain, compileOpt, linkOpt, codegenOpt, optimize,
-    objectSignature, flags, heapScratch, alignedMalloc, stackFirst,
+    objectSignature, flags, heapScratch, alignedMalloc, stackFirst, stackBytes,
     ...(options.profile ? { diagnostic: true, wrappers,
       profileSource: 'test/memory-profile.cpp',
       profileSourceSha256: createHash('sha256').update(readFileSync('test/memory-profile.cpp')).digest('hex') } : {}) };

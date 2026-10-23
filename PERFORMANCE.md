@@ -5,11 +5,12 @@ Binaryen 129, and the Chrome 75 scalar feature target. Sizes are bytes; gzip use
 Node's default gzip settings. There are 52 exports including memory, with no
 imports, start section, WASI initialization, IO or threading.
 
-The selected build is **334,638 bytes raw / 125,247 gzip**, with a **4,663-byte JS
+The selected build is **334,638 bytes raw / 125,248 gzip**, with a **4,663-byte JS
 wrapper**. It retains Clang `-O3`, full LTO and Binaryen `-O3`, uses heap-backed
 Eigen dynamic scratch, and relies on the SDK's existing 16-byte malloc alignment.
-The stack stays 64 KiB. Compared with the previous five-family release, the
-expanded build adds 7,545 raw / 5,191 gzip bytes, including the solver stack fix.
+The stack is 16 KiB and initial memory is one 64 KiB page. Compared with the
+previous five-family release, the expanded build adds 7,545 raw / 5,192 gzip
+bytes, including the solver stack fix.
 
 ## Cost of the additional algorithms
 
@@ -119,13 +120,13 @@ smoothing case trapped in both production and diagnostic builds. Ordinary scalar
 Wasm locals are unrelated to this linear-memory allocation. Setting
 `EIGEN_STACK_ALLOCATION_LIMIT=0` moves positive dynamic buffers to the heap.
 `--stack-first` places static data above the downward-growing stack. The fixed
-stack size is unchanged. The pinned Eigen's `EIGEN_NO_ALLOCA` option alone fails
+stack size remained 64 KiB during this comparison. The pinned Eigen's `EIGEN_NO_ALLOCA` option alone fails
 to compile some triangular matrix/vector templates; no vendor patch was needed.
 
 | Memory configuration, all with O3 | Raw bytes | Gzip bytes |
 | --- | ---: | ---: |
 | Heap scratch and stack first | 352,593 | 129,852 |
-| Above, plus existing malloc alignment (selected) | 334,638 | 125,247 |
+| Above, plus existing malloc alignment (64 KiB stack) | 334,638 | 125,247 |
 
 `EIGEN_MALLOC_ALREADY_ALIGNED=1` removes redundant alignment/pointer-adjustment
 code. The SDK allocator provides 16-byte alignment; compile-time checks enforce
@@ -172,7 +173,7 @@ returns tracked bytes and blocks to zero; identical workloads reach a backing
 memory plateau after two warmup cycles. These are bounded lifecycle checks, not
 a proof against every leak or fragmentation pattern.
 
-Selected configuration, 96×96 cells (9,409 vertices); values are bytes:
+Historical 64 KiB stack profile, 96×96 cells (9,409 vertices); values are bytes:
 
 | Workload | Peak live usable | Retained linear memory |
 | --- | ---: | ---: |
@@ -205,3 +206,27 @@ scratch; destruction returns that to zero. Destroy/recreate a mesh after an
 unusually large polygon when that retained capacity is unwanted. Freeing chunks
 does not return Wasm pages to the engine; discard the instance when its high-water
 backing memory must be reclaimed. Neither policy requires a thicker JS wrapper.
+
+## Reduced stack reservation
+
+After moving dynamic Eigen scratch to the heap, instrumenting all 226 writes to
+the optimized binary's stack-pointer global observed a maximum movement of
+960 bytes. An independent write watermark observed 900 bytes. The workload
+covered 184 algorithm/extension cases, the large solver regression, 256 fuzz
+seeds and benchmark inputs. These observations are not a universal upper bound;
+leaf red-zone writes can bypass stack-pointer updates.
+
+The selected 16 KiB reservation retains substantial measured headroom, reduces
+initial memory from 131,072 to 65,536 bytes, and keeps raw code size unchanged.
+Gzip grows by one byte. The core suite asserts the one-page initial memory.
+Full Node/browser workflows, JS and sanitized C fuzzing, and allocator lifecycle
+checks are rerun against this configuration. Dynamic input-sized Eigen buffers
+remain heap-backed; reducing the reservation does not reinstate `alloca`.
+
+The production reduction passes 70 Node tests; 258 shared E2E workflows and
+870,628 assertions per load mode in Node and Chromium; 256 JS fuzz seeds with
+1,794,241 assertions; and 256 C11 ASan/UBSan seeds with 2,626,257 assertions.
+The rebuilt diagnostic profile passes all 280 lifecycles (4,538 assertions),
+returns tracked live bytes to zero, and reaches the same allocation plateau.
+Its largest solver retains 21,889,024 linear-memory bytes, one page less than
+the earlier profile; peak live payload capacity remains 20,375,960 bytes.

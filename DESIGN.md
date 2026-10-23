@@ -456,9 +456,10 @@ sensitive solvers. Preserve upstream double precision. The measured compiler,
 linker and Binaryen pass retains `-O3`/full LTO/Binaryen `-O3`; smaller compiler
 profiles slowed representative workloads. See PERFORMANCE.md for the tradeoffs.
 
-Keep the 64 KiB linear-memory stack. Ordinary scalar temporaries usually become
+Use a 16 KiB linear-memory stack. Ordinary scalar temporaries usually become
 Wasm locals, but Eigen's addressable dynamic scratch arrays used `alloca` with
-a 128 KiB per-buffer threshold. A 9,409-vertex smoothing case exceeded the stack.
+a 128 KiB per-buffer threshold. A 9,409-vertex smoothing case exceeded even
+the former 64 KiB stack.
 Set `EIGEN_STACK_ALLOCATION_LIMIT=0` so positive dynamic scratch buffers use the
 heap. This leaves fixed small matrices and scalars unchanged; Eigen's static
 fixed-object size assertion is disabled by that setting. Link `--stack-first`

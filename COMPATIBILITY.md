@@ -58,7 +58,7 @@ has the older 2 GiB linear-memory ceiling; access above that requires Chrome 83
 or later, as described in [V8's memory-limit update](https://v8.dev/blog/4gb-wasm-memory).
 The module starts small and grows on demand. Allocation failure traps; it does
 not add a host runtime or fallback allocator.
-The linear-memory stack remains 64 KiB. Eigen's dynamic scratch buffers use
+The linear-memory stack is 16 KiB; initial memory is one 64 KiB page. Eigen's dynamic scratch buffers use
 the heap; scalar Wasm locals do not consume that linear-memory stack. The SDK's
 16-byte malloc alignment is checked at build time and reused by Eigen. These
 settings introduce no additional Wasm feature or runtime requirement.
