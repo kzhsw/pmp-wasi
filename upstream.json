@@ -1,0 +1,59 @@
+{
+  "pmp": {
+    "repository": "https://github.com/pmp-library/pmp-library.git",
+    "revision": "215975ca1efafab97477b18187a4a23b87529036",
+    "version": "3.0.0",
+    "license": "MIT",
+    "coreHeaders": [
+      "src/pmp/bounding_box.h",
+      "src/pmp/exceptions.h",
+      "src/pmp/mat_vec.h",
+      "src/pmp/properties.h",
+      "src/pmp/surface_mesh.h",
+      "src/pmp/tolerances.h",
+      "src/pmp/types.h"
+    ],
+    "translationUnits": [
+      "src/pmp/surface_mesh.cpp",
+      "src/pmp/algorithms/analysis.cpp",
+      "src/pmp/algorithms/curvature.cpp",
+      "src/pmp/algorithms/decimation.cpp",
+      "src/pmp/algorithms/differential_geometry.cpp",
+      "src/pmp/algorithms/distance_point_triangle.cpp",
+      "src/pmp/algorithms/fairing.cpp",
+      "src/pmp/algorithms/features.cpp",
+      "src/pmp/algorithms/geodesics.cpp",
+      "src/pmp/algorithms/hole_filling.cpp",
+      "src/pmp/algorithms/laplace.cpp",
+      "src/pmp/algorithms/normals.cpp",
+      "src/pmp/algorithms/numerics.cpp",
+      "src/pmp/algorithms/parameterization.cpp",
+      "src/pmp/algorithms/remeshing.cpp",
+      "src/pmp/algorithms/shapes.cpp",
+      "src/pmp/algorithms/smoothing.cpp",
+      "src/pmp/algorithms/subdivision.cpp",
+      "src/pmp/algorithms/triangulation.cpp",
+      "src/pmp/algorithms/utilities.cpp"
+    ],
+    "algorithmHeaders": "src/pmp/algorithms/*.h"
+  },
+  "eigen": {
+    "version": "5.0.1",
+    "source": "pmp checkout at the revision above",
+    "includeDirectory": "external/eigen-5.0.1",
+    "primaryLicense": "MPL-2.0"
+  },
+  "reference": {
+    "repository": "https://github.com/kzhsw/xatlas-wasi.git",
+    "revision": "7cf8877decce7cc63f48d91e94ee7410a77402c0"
+  },
+  "documentation": "https://www.pmp-library.org/group__algorithms.html",
+  "reviewedOn": "2026-10-23",
+  "toolchain": {
+    "wasiSdk": "32.0",
+    "target": "wasm32-unknown-wasip1",
+    "binaryen": "129",
+    "threads": false,
+    "featurePolicy": "Use the compiler and linked SDK library feature baseline; defer feature tuning."
+  }
+}
