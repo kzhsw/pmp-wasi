@@ -126,9 +126,18 @@ function topology(view, expectedFaces) {
   }
 }
 
+test('public C header declares exactly the implemented API and matching runtime ABI', async () => {
+  const header = (await readFile(new URL('../include/pmp.h', import.meta.url), 'utf8'))
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+  const declarations = [...header.matchAll(/\b(pmp_\w+)\s*\([^;{}]*\)\s*;/g)].map(match => match[1]);
+  assert.deepEqual(declarations.sort(), exportNames.filter(name => name !== 'memory').sort());
+  const version = Number(header.match(/^#define PMP_ABI_VERSION (\d+)u$/m)[1]);
+  assert.equal((await instantiate(module)).pmp_abi_version(), version);
+});
+
 test('core binary has exactly the development exports and no host or initialization hooks', async () => {
   const info = audit(wasm, exportNames);
-  assert.equal(exportNames.length, 38);
+  assert.equal(exportNames.length, 52);
   assert.deepEqual(WebAssembly.Module.imports(info.module), []);
   assert.equal(info.start, false);
   assert(![...info.exports.keys()].some(name => /init|ctor|dtor|start|wasi/i.test(name)));

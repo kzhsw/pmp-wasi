@@ -38,6 +38,9 @@ public:
     //! Let two elements swap their storage place.
     virtual void swap(size_t i0, size_t i1) = 0;
 
+    // Copy one native row when a topology operation duplicates a face/corner.
+    virtual void copy_row(size_t from, size_t to) = 0;
+
     //! Return a deep copy of self.
     virtual BasePropertyArray* clone() const = 0;
 
@@ -76,6 +79,8 @@ public:
         data_[i0] = data_[i1];
         data_[i1] = d;
     }
+
+    void copy_row(size_t from, size_t to) override { data_[to] = data_[from]; }
 
     BasePropertyArray* clone() const override
     {
@@ -209,6 +214,14 @@ public:
             if (predicate(std::string_view(property->name())))
                 return true;
         return false;
+    }
+
+    template <class Predicate>
+    void copy_rows(size_t from, size_t to, Predicate predicate)
+    {
+        for (auto* property : parrays_)
+            if (predicate(std::string_view(property->name())))
+                property->copy_row(from, to);
     }
 
     // returns a vector of all property names

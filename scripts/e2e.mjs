@@ -8,24 +8,32 @@ import { resolve } from 'node:path';
 import { audit } from './wasm.mjs';
 import { runScenario } from '../test/e2e/scenario.mjs';
 import { runAlgorithms } from '../test/e2e/algorithms.mjs';
+import { runExtensions } from '../test/e2e/extensions.mjs';
+import { runFuzz } from '../test/fuzz-js.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const nodeOnly = process.argv.includes('--node-only');
 assert(process.argv.slice(2).every(argument => argument === '--node-only'), 'Unknown E2E option');
 const reportPath = resolve(root, nodeOnly ? 'build/e2e-node-report.json' : 'build/e2e-report.json');
 await rm(reportPath, { force: true });
-const files = ['/test/e2e/index.html', '/test/e2e/scenario.mjs', '/test/e2e/algorithms.mjs',
-  '/src/index.js', '/build/pmp-core.wasm', '/test/fixtures/native-core.json', '/test/fixtures/native-algorithms.json', '/exports/core.json'];
+const files = ['/test/e2e/index.html', '/test/e2e/scenario.mjs', '/test/e2e/algorithms.mjs', '/test/e2e/extensions.mjs',
+  '/src/index.js', '/build/pmp-core.wasm', '/test/fixtures/native-core.json', '/test/fixtures/native-algorithms.json',
+  '/test/fixtures/native-extensions.json', '/test/fuzz-js.mjs', '/exports/core.json'];
 const assets = new Map(await Promise.all(files.map(async path => [path, await readFile(root + path)])));
 const bytes = assets.get('/build/pmp-core.wasm');
 const fixtures = JSON.parse(assets.get('/test/fixtures/native-core.json'));
 const algorithmFixtures = JSON.parse(assets.get('/test/fixtures/native-algorithms.json'));
+const extensionFixtures = JSON.parse(assets.get('/test/fixtures/native-extensions.json'));
 const exports = JSON.parse(assets.get('/exports/core.json'));
 const module = audit(bytes, exports).module;
 const run = async source => {
   const core = await runScenario(source, fixtures, exports);
   const algorithms = await runAlgorithms(source, algorithmFixtures);
-  return { cases: [...core.cases, ...algorithms.cases], assertions: core.assertions + algorithms.assertions };
+  const extensions = await runExtensions(source, extensionFixtures);
+  const fuzz = await runFuzz(source, { seed: 0x504d5000, seeds: 64 });
+  return { cases: [...core.cases, ...algorithms.cases, ...extensions.cases,
+    ...fuzz.results.map(output => ({ name: `fuzz seed ${output.seed}`, output }))],
+    assertions: core.assertions + algorithms.assertions + extensions.assertions + fuzz.assertions };
 };
 const expected = await run(bytes);
 assert(expected.cases.length > 0 && expected.assertions > 0);

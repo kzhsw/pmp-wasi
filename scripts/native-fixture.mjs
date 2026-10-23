@@ -30,12 +30,20 @@ const algorithms = [...core, ...['decimation', 'subdivision', 'distance_point_tr
   'curvature', 'smoothing', 'laplace', 'numerics', 'differential_geometry', 'fairing', 'hole_filling']
   .map(name => `algorithms/${name}.cpp`)];
 const suites = [
-  { generator: 'test/native-reference.cpp', executable: 'build/native-reference',
+  { name: 'core', generator: 'test/native-reference.cpp', executable: 'build/native-reference',
     sources: core, output: 'native-core.json', count: 4 },
-  { generator: 'test/algorithms-reference.cpp', executable: 'build/algorithms-reference',
+  { name: 'algorithms', generator: 'test/algorithms-reference.cpp', executable: 'build/algorithms-reference',
     sources: algorithms, output: 'native-algorithms.json', count: 22 },
+  { name: 'extensions', generator: 'test/extensions-reference.cpp', executable: 'build/extensions-reference',
+    sources: [...core, ...['curvature', 'differential_geometry', 'fairing', 'laplace', 'numerics',
+      'smoothing', 'triangulation', 'utilities'].map(name => `algorithms/${name}.cpp`)],
+    output: 'native-extensions.json', count: 43 },
 ];
-const generated = suites.map(suite => {
+const options = process.argv.slice(2);
+assert(options.length <= 1 && options.every(option => /^--suite=(core|algorithms|extensions)$/.test(option)),
+  'Optional argument: --suite=core|algorithms|extensions');
+const selected = options.length ? suites.filter(suite => options[0] === `--suite=${suite.name}`) : suites;
+const generated = selected.map(suite => {
   run(process.env.CXX ?? 'clang++', ['-std=c++20', '-O2', '-I' + join(upstream, 'src'),
     '-isystem', join(upstream, pin.eigen.includeDirectory), suite.generator,
     ...suite.sources.map(path => join(upstream, 'src/pmp', path)), '-o', suite.executable]);

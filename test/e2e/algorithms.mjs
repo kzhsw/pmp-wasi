@@ -469,7 +469,7 @@ export async function runAlgorithms(source, fixtures) {
     ['invalid implicit Laplace flag', 'pmp_implicit_smoothing', [0.03, 1, 2, 0]],
     ['invalid implicit rescale flag', 'pmp_implicit_smoothing', [0.03, 1, 0, 2]],
     ['invalid hole halfedge', 'pmp_fill_hole', [INVALID]],
-    ['invalid property preflight operation', 'pmp_mesh_unsupported_properties', [10]],
+    ['invalid property preflight operation', 'pmp_mesh_unsupported_properties', [14]],
   ];
   for (const [name, operation, args] of invalidArguments) await run(name, async () => {
     const e = await instantiate(module), mesh = e.pmp_mesh_create();

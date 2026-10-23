@@ -42,6 +42,12 @@ inline void store(float* out, const pmp::Point& value)
     require(out != nullptr);
     for (int i = 0; i != 3; ++i) out[i] = value[i];
 }
+
+// Shared algorithm boundary checks and derived-property invalidation.
+void check_mesh(const pmp::SurfaceMesh& mesh);
+pmp::SurfaceMesh& prepare(pmp_mesh* handle, uint32_t op, bool triangles = false);
+void check_polygon_matrices(const pmp::SurfaceMesh& mesh, bool polygons);
+void invalidate_results(pmp::SurfaceMesh& mesh);
 } // namespace pmp_wasm
 
 namespace pmp {

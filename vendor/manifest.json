@@ -136,6 +136,26 @@
       "adapted": "1e4e0899760e107f5238078c624313eeaf1e808cac80d717c583fa96837a126b"
     },
     {
+      "path": "pmp/algorithms/triangulation.cpp",
+      "original": "e2a071886b89654bddf9d0c0cc8146bb9af0c409e4b67bef6fada6d08768dc21",
+      "adapted": "a67b88bd83fcb3368c73dd929c9e5e7a1a0d70a7868b648147400bdce229cad1"
+    },
+    {
+      "path": "pmp/algorithms/triangulation.h",
+      "original": "e462d9a48d4d460f8856a1dd619e5d1e3fae38b7dc9015f65bbec2fab3944b42",
+      "adapted": "e462d9a48d4d460f8856a1dd619e5d1e3fae38b7dc9015f65bbec2fab3944b42"
+    },
+    {
+      "path": "pmp/algorithms/utilities.cpp",
+      "original": "47cf7700b5012738edcd451e5cbe6f136ce06ce6e3b83b816e50cf574f583120",
+      "adapted": "47cf7700b5012738edcd451e5cbe6f136ce06ce6e3b83b816e50cf574f583120"
+    },
+    {
+      "path": "pmp/algorithms/utilities.h",
+      "original": "9d56d83d2b3343d9c0aeb504664f13e049d3f6e4620f124cd6ec04a3b9c82c38",
+      "adapted": "9d56d83d2b3343d9c0aeb504664f13e049d3f6e4620f124cd6ec04a3b9c82c38"
+    },
+    {
       "path": "pmp/bounding_box.h",
       "original": "fffccb917607b4f966f94e191c7e46d7f2fb41b1961ff3f4017c2273d411c798",
       "adapted": "fffccb917607b4f966f94e191c7e46d7f2fb41b1961ff3f4017c2273d411c798"
@@ -153,7 +173,7 @@
     {
       "path": "pmp/properties.h",
       "original": "345d90e411d057eb9f91e9f0b78f3a89c7e505da07aeebce885f2f1cdc549be1",
-      "adapted": "cba3ee5ad2ba886c011d44ae23625e16a8aec1d371a32a5d9eaf0bb133adfea0"
+      "adapted": "d9bf3d7f3d701a60b8836e82c54075c3e92f427cc25586b0bbb8b145515bf681"
     },
     {
       "path": "pmp/surface_mesh.cpp",

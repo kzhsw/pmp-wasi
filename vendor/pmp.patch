@@ -303,7 +303,30 @@
      }
  
      // reserve memory
---- /dev/null
+--- a/pmp/algorithms/triangulation.cpp
++++ b/pmp/algorithms/triangulation.cpp
+@@ -53,8 +53,7 @@
+     {
+         if (!mesh_.is_manifold(mesh_.to_vertex(h)))
+         {
+-            auto what = std::string{__func__} + ": Non-manifold polygon";
+-            throw InvalidInputException(what);
++            fail();
+         }
+ 
+         halfedges_.emplace_back(h);
+@@ -121,6 +120,10 @@
+         if (end - start < 2)
+             continue;
+         const int split = index_[start][end];
++        // A non-finite/overflowed weight may leave no valid split. Never use
++        // the sentinel as a vertex/halfedge index in a release build.
++        if (split <= start || split >= end)
++            fail();
+ 
+         insert_edge(start, split);
+         insert_edge(split, end);
+--- a/pmp/error.h
 +++ b/pmp/error.h
 @@ -0,0 +1,6 @@
 +// pmp-wasi adaptation. SPDX-License-Identifier: MIT
@@ -355,22 +378,19 @@
  }
  
 -//! return the inverse of a 3x3 matrix
--template <typename Scalar>
--Mat3<Scalar> inverse(const Mat3<Scalar>& m)
 +//! Compute the inverse, returning false for the same singular cases as upstream.
-+template <typename Scalar>
+ template <typename Scalar>
+-Mat3<Scalar> inverse(const Mat3<Scalar>& m)
 +bool try_inverse(const Mat3<Scalar>& m, Mat3<Scalar>& inv)
  {
      const Scalar det = determinant(m);
      if (fabs(det) < 1.0e-10 || std::isnan(det))
      {
 -        throw SolverException("3x3 matrix not invertible");
--    }
--
--    Mat3<Scalar> inv;
 +        return false;
-+    }
-+
+     }
+ 
+-    Mat3<Scalar> inv;
      inv(0, 0) = (m(1, 1) * m(2, 2) - m(1, 2) * m(2, 1)) / det;
      inv(0, 1) = (m(0, 2) * m(2, 1) - m(0, 1) * m(2, 2)) / det;
      inv(0, 2) = (m(0, 1) * m(1, 2) - m(0, 2) * m(1, 1)) / det;
@@ -441,7 +461,17 @@
  
      //! Reserve memory for n elements.
      virtual void reserve(size_t n) = 0;
-@@ -46,7 +50,10 @@
+@@ -34,6 +38,9 @@
+     //! Let two elements swap their storage place.
+     virtual void swap(size_t i0, size_t i1) = 0;
+ 
++    // Copy one native row when a topology operation duplicates a face/corner.
++    virtual void copy_row(size_t from, size_t to) = 0;
++
+     //! Return a deep copy of self.
+     virtual BasePropertyArray* clone() const = 0;
+ 
+@@ -46,7 +53,10 @@
  {
  public:
      using ValueType = T;
@@ -453,7 +483,16 @@
      using reference = typename VectorType::reference;
      using const_reference = typename VectorType::const_reference;
  
-@@ -77,11 +84,11 @@
+@@ -70,6 +80,8 @@
+         data_[i1] = d;
+     }
+ 
++    void copy_row(size_t from, size_t to) override { data_[to] = data_[from]; }
++
+     BasePropertyArray* clone() const override
+     {
+         auto* p = new PropertyArray<T>(name_, value_);
+@@ -77,11 +89,11 @@
          return p;
      }
  
@@ -468,11 +507,10 @@
  
      //! Access the i'th element. No range check is performed!
      reference operator[](size_t idx)
-@@ -105,14 +112,6 @@
-     VectorType data_;
+@@ -106,14 +118,6 @@
      ValueType value_;
  };
--
+ 
 -// specialization for bool properties
 -template <>
 -inline const bool* PropertyArray<bool>::data() const
@@ -480,10 +518,11 @@
 -    assert(false);
 -    return nullptr;
 -}
- 
+-
  template <class T>
  class Property
-@@ -142,13 +141,13 @@
+ {
+@@ -142,13 +146,13 @@
          return (*parray_)[i];
      }
  
@@ -499,7 +538,7 @@
      {
          assert(parray_ != nullptr);
          return parray_->vector();
-@@ -202,6 +201,16 @@
+@@ -202,6 +206,24 @@
      // returns the number of property arrays
      size_t n_properties() const { return parrays_.size(); }
  
@@ -513,10 +552,18 @@
 +        return false;
 +    }
 +
++    template <class Predicate>
++    void copy_rows(size_t from, size_t to, Predicate predicate)
++    {
++        for (auto* property : parrays_)
++            if (predicate(std::string_view(property->name())))
++                property->copy_row(from, to);
++    }
++
      // returns a vector of all property names
      std::vector<std::string> properties() const
      {
-@@ -221,9 +230,7 @@
+@@ -221,9 +243,7 @@
          {
              if (parray->name() == name)
              {
@@ -527,7 +574,7 @@
              }
          }
  
-@@ -235,7 +242,7 @@
+@@ -235,7 +255,7 @@
      }
  
      // do we have a property with a given name?
@@ -536,7 +583,7 @@
      {
          for (auto parray : parrays_)
              if (parray->name() == name)
-@@ -245,11 +252,13 @@
+@@ -245,11 +265,13 @@
  
      // get a property by its name. returns invalid property if it does not exist.
      template <class T>
@@ -552,7 +599,7 @@
          return Property<T>();
      }
  
-@@ -280,6 +289,19 @@
+@@ -280,6 +302,19 @@
          }
      }
  
@@ -682,11 +729,10 @@
  
  //! \addtogroup core
  //!@{
-@@ -75,32 +73,6 @@
- {
+@@ -76,32 +74,6 @@
      using Handle::Handle;
  };
--
+ 
 -// Output operators
 -
 -//! output a Vertex to a stream
@@ -712,9 +758,10 @@
 -{
 -    return (os << 'f' << f.idx());
 -}
- 
+-
  // Property Types
  
+ //! Vertex property of type T
 @@ -1164,6 +1136,7 @@
      //! \throw TopologyException in case a topological error occurs.
      //! \sa add_triangle, add_quad

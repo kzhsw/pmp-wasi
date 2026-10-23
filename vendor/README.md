@@ -8,7 +8,9 @@ PMP changes are recorded in `pmp.patch`: remove filesystem/stream declarations;
 replace escaping exceptions with traps; expose checked native connectivity;
 store bool properties as bytes; replace RTTI with checked per-type tokens; use
 nonallocating property lookup/removal; and add direct span/reversed-span face
-construction. Numerical normals/features sources are unchanged. `pmp/error.h`
+construction. Property arrays provide native row copying for triangulation
+corner/face transfer; triangulation traps on an invalid split sentinel. Numerical
+normals/features sources are unchanged. `pmp/error.h`
 is the small new trap helper. Remeshing's singular 3x3 inverse returns a success
 flag and retains the original weighted-centroid fallback, threshold and arithmetic.
 Hole-filling cleanup/rethrow paths become fatal; successful cleanup is preserved.

@@ -36,5 +36,19 @@
   "pmp_linear_subdivision",
   "pmp_explicit_smoothing",
   "pmp_implicit_smoothing",
-  "pmp_fill_hole"
+  "pmp_fill_hole",
+  "pmp_triangulate",
+  "pmp_triangulate_face",
+  "pmp_connected_components",
+  "pmp_bounds",
+  "pmp_surface_area",
+  "pmp_volume",
+  "pmp_centroid",
+  "pmp_mean_edge_length",
+  "pmp_min_edge_length",
+  "pmp_min_face_area",
+  "pmp_curvature",
+  "pmp_fair",
+  "pmp_minimize_area",
+  "pmp_minimize_curvature"
 ]

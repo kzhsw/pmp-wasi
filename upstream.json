@@ -54,6 +54,6 @@
     "target": "wasm32-unknown-wasip1",
     "binaryen": "129",
     "threads": false,
-    "featurePolicy": "Use the compiler and linked SDK library feature baseline; defer feature tuning."
+    "featurePolicy": "Target Chrome 75: MVP plus bulk-memory-opt, nontrapping-fptoint and sign-ext. Strip SDK target metadata, then validate actual instructions under that limit."
   }
 }

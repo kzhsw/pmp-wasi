@@ -6,20 +6,27 @@
 <script type="module">
 import { runScenario } from '/test/e2e/scenario.mjs';
 import { runAlgorithms } from '/test/e2e/algorithms.mjs';
+import { runExtensions } from '/test/e2e/extensions.mjs';
+import { runFuzz } from '/test/fuzz-js.mjs';
 
 window.runPmpE2E = async mode => {
   const response = await fetch('/build/pmp-core.wasm');
   if (!response.ok) throw new Error(`Wasm fetch failed: ${response.status}`);
   const source = mode === 'streaming'
     ? await WebAssembly.compileStreaming(response) : await response.arrayBuffer();
-  const [fixtures, exports, algorithmFixtures] = await Promise.all([
+  const [fixtures, exports, algorithmFixtures, extensionFixtures] = await Promise.all([
     fetch('/test/fixtures/native-core.json').then(response => response.json()),
     fetch('/exports/core.json').then(response => response.json()),
     fetch('/test/fixtures/native-algorithms.json').then(response => response.json()),
+    fetch('/test/fixtures/native-extensions.json').then(response => response.json()),
   ]);
   const core = await runScenario(source, fixtures, exports);
   const algorithms = await runAlgorithms(source, algorithmFixtures);
-  const result = { cases: [...core.cases, ...algorithms.cases], assertions: core.assertions + algorithms.assertions };
+  const extensions = await runExtensions(source, extensionFixtures);
+  const fuzz = await runFuzz(source, { seed: 0x504d5000, seeds: 64 });
+  const result = { cases: [...core.cases, ...algorithms.cases, ...extensions.cases,
+    ...fuzz.results.map(output => ({ name: `fuzz seed ${output.seed}`, output }))],
+    assertions: core.assertions + algorithms.assertions + extensions.assertions + fuzz.assertions };
   document.querySelector('output').textContent = `${mode}: ${result.cases.length} workflows passed`;
   return result;
 };

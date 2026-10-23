@@ -1,82 +1,66 @@
-// Repeated, alternating measurements; mesh setup is outside algorithm timings.
+// Run the same alternating benchmark in Node or an existing local browser.
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { performance } from 'node:perf_hooks';
+import { createServer } from 'node:http';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { instantiate, meshView } from '../src/index.js';
+import { instantiate } from '../src/index.js';
+import { runBenchmark } from './benchmark.mjs';
 
-const paths = process.argv.slice(2);
+process.chdir(resolve(import.meta.dirname, '..'));
+const args = process.argv.slice(2), browserMode = args.includes('--browser');
+const paths = args.filter(path => path !== '--browser');
+assert(paths.every(path => !path.startsWith('--')), 'Unknown benchmark option');
 if (!paths.length) paths.push('build/pmp-core.wasm');
-const variants = await Promise.all(paths.map(async path => ({ path,
-  exports: await instantiate(await readFile(resolve(path))), samples: new Map() })));
-const fixtures = JSON.parse(await readFile(new URL('../test/fixtures/native-algorithms.json', import.meta.url)));
-const n = 40, positions = [], indices = [];
-for (let y = 0; y <= n; ++y) for (let x = 0; x <= n; ++x)
-  positions.push(0.6 * x, 0.55 * y, 0.15 * Math.sin(x * 0.4) * Math.sin(y * 0.35));
-for (let y = 0; y < n; ++y) for (let x = 0; x < n; ++x) {
-  const a = y * (n + 1) + x;
-  indices.push(a, a + 1, a + n + 2, a, a + n + 2, a + n + 1);
-}
-const grid = { positions, indices };
-const hole = fixtures.find(fixture => fixture.name === 'hole-annulus-refine-fair');
-const cases = [
-  ['construction', null, [], grid],
-  ['vertex-normals', 'pmp_vertex_normals', [], grid],
-  ['face-normals', 'pmp_face_normals', [], grid],
-  ['features', 'pmp_detect_features', [30], grid],
-  ['decimation', 'pmp_decimate', [900, 0, 0, 0, 0, 0, 0.01, 1], grid],
-  ['uniform-remesh', 'pmp_uniform_remeshing', [0.45, 2, 1], grid],
-  ['adaptive-remesh', 'pmp_adaptive_remeshing', [0.28, 0.8, 0.025, 2, 1], grid],
-  ['catmull-clark', 'pmp_catmull_clark_subdivision', [0], grid],
-  ['loop', 'pmp_loop_subdivision', [0], grid],
-  ['quad-tri', 'pmp_quad_tri_subdivision', [0], grid],
-  ['linear', 'pmp_linear_subdivision', [], grid],
-  ['explicit-smoothing', 'pmp_explicit_smoothing', [3, 0], grid],
-  ['implicit-smoothing', 'pmp_implicit_smoothing', [0.03, 2, 0, 1], grid],
-  ['hole-refine-fair', 'pmp_fill_hole', hole.args,
-    { positions: hole.input.positions, indices: hole.input.faces.flat() }],
-];
-const warmup = 5, rounds = 15;
-for (const [name, operation, args, input] of cases) {
-  for (let round = -warmup; round < rounds; ++round) {
-    // Reverse order every round to reduce systematic tiering/thermal bias.
-    for (const variant of (round % 2 ? [...variants].reverse() : variants)) {
-      const e = variant.exports, mesh = e.pmp_mesh_create();
-      const count = input.positions.length / 3, triangles = input.indices.length / 3;
-      e.pmp_mesh_reserve(mesh, count, triangles * 2, triangles);
-      e.pmp_mesh_add_vertices(mesh, count);
-      const pointer = e.pmp_alloc(input.indices.length * 4) >>> 0;
-      new Uint32Array(e.memory.buffer, pointer, input.indices.length).set(input.indices);
-      meshView(e, mesh).positions.set(input.positions);
-      let elapsed;
-      if (operation) {
-        e.pmp_mesh_add_triangles(mesh, pointer, triangles, 0, 0);
-        const start = performance.now();
-        e[operation](mesh, ...args);
-        elapsed = performance.now() - start;
-      } else {
-        const start = performance.now();
-        e.pmp_mesh_add_triangles(mesh, pointer, triangles, 0, 0);
-        elapsed = performance.now() - start;
-      }
-      const view = meshView(e, mesh);
-      assert(view.liveFaces > 0 && view.positions.every(Number.isFinite));
-      if (round >= 0) {
-        if (!variant.samples.has(name)) variant.samples.set(name, []);
-        variant.samples.get(name).push(elapsed);
-      }
-      e.pmp_free(pointer);
-      e.pmp_mesh_destroy(mesh);
-    }
+const buffers = await Promise.all(paths.map(path => readFile(path)));
+const fixtures = JSON.parse(await readFile('test/fixtures/native-algorithms.json', 'utf8'));
+let result;
+if (!browserMode) {
+  const variants = await Promise.all(buffers.map(async (bytes, i) => ({ path: paths[i],
+    exports: await instantiate(bytes), samples: new Map() })));
+  result = { node: process.version, ...runBenchmark(variants, fixtures) };
+} else {
+  assert(process.env.PLAYWRIGHT_MODULE && process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+    'Set PLAYWRIGHT_MODULE and PLAYWRIGHT_CHROMIUM_EXECUTABLE to existing installations');
+  const assets = new Map([
+    ['/', ['text/html', '<title>PMP benchmark</title>']],
+    ['/src/index.js', ['text/javascript', await readFile('src/index.js')]],
+    ['/scripts/benchmark.mjs', ['text/javascript', await readFile('scripts/benchmark.mjs')]],
+    ...buffers.map((bytes, i) => [`/variant/${i}.wasm`, ['application/wasm', bytes]]),
+  ]);
+  const server = createServer((request, response) => {
+    const asset = assets.get(request.url);
+    if (request.method !== 'GET' || !asset) return response.writeHead(404).end();
+    response.writeHead(200, { 'Content-Type': asset[0], 'Cache-Control': 'no-store' }).end(asset[1]);
+  });
+  const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE);
+  let browser;
+  try {
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    browser = await chromium.launch({ headless: true,
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+      args: (process.env.PLAYWRIGHT_CHROMIUM_ARGS || '').split(/\s+/).filter(Boolean) });
+    const page = await browser.newPage(), errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.route('**/*', route => new URL(route.request().url()).origin === origin ?
+      route.continue() : route.abort());
+    await page.goto(origin);
+    result = await page.evaluate(async ({ paths, fixtures }) => {
+      const { instantiate } = await import('/src/index.js');
+      const { runBenchmark } = await import('/scripts/benchmark.mjs');
+      const variants = await Promise.all(paths.map(async (path, i) => ({ path,
+        exports: await instantiate(await (await fetch(`/variant/${i}.wasm`)).arrayBuffer()), samples: new Map() })));
+      return runBenchmark(variants, fixtures);
+    }, { paths, fixtures });
+    assert.deepEqual(errors, []);
+    result.chromium = browser.version();
+  } finally {
+    try { if (browser) await browser.close(); }
+    finally { await new Promise(resolve => server.close(resolve)); }
   }
 }
-const results = variants.map(variant => ({ path: variant.path,
-  finalMemoryBytes: variant.exports.memory.buffer.byteLength,
-  milliseconds: Object.fromEntries([...variant.samples].map(([name, values]) => {
-    values.sort((a, b) => a - b);
-    return [name, { median: values[rounds >> 1], min: values[0], max: values.at(-1) }];
-  })) }));
-console.log(JSON.stringify({ node: process.version, gridVertices: positions.length / 3,
-  gridTriangles: indices.length / 3, warmup, rounds,
-  note: 'Algorithm time excludes mesh setup. Hole uses the small native refinement fixture. Memory is final high-water capacity, not total process memory.',
-  results }, null, 2));
+console.log(JSON.stringify(result, null, 2));

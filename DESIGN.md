@@ -1,21 +1,23 @@
 # pmp-wasi v1 design
 
-Status: implementation started; ABI version 1 remains provisional.
+Status: development ABI 0 implemented; no future ABI version is frozen.
 The initial development module reports ABI 0 and implements mesh ownership,
 construction, properties, normals, feature detection, and all ten entry points
 in the five selected families: decimation, remeshing, subdivision, smoothing
-and hole filling. Its exact exports are
-in [exports/core.json](exports/core.json). The declarations in
-[include/pmp.h](include/pmp.h) describe the proposed full contract; declarations
-outside the core manifest are not implemented. Freeze ABI version 1 after full
-implementation and validation against this document.
+and hole filling, plus triangulation, connected components, seven mesh
+measurements, curvature and three fairing entry points. Its exact exports are
+in [exports/core.json](exports/core.json). The public [C header](include/pmp.h)
+declares exactly those functions, with `PMP_ABI_VERSION=0` matching the runtime.
+Unimplemented declarations and their supporting types are isolated in
+[design/pmp-proposed.h](design/pmp-proposed.h). Freeze a future ABI only after
+implementation and validation; the design header is not a linkable API.
 
 ## Scope and source boundary
 
 Expose the computational functions in PMP's [algorithms group](https://www.pmp-library.org/group__algorithms.html),
 with their original names, arguments, units, numerical precision, and behavior.
 The reviewed page contains 77 function entries including overloads. Its one
-stream output operator is excluded, leaving **76 C algorithm declarations**.
+stream output operator is excluded, leaving **76 C algorithm declarations** across implemented and proposed headers.
 Nine standalone math helpers stay C-only, leaving **67 Wasm algorithm exports**. Small
 mesh/matrix ownership and storage operations are necessary supporting API.
 
@@ -26,14 +28,16 @@ The reviewed PMP revision is `215975ca1efafab97477b18187a4a23b87529036`
 headers/sources, necessary Eigen headers, and license notices.
 
 The full build will compile `surface_mesh.cpp` and the 19 listed algorithm translation units directly.
-The current build compiles `surface_mesh.cpp` and 13 algorithm translation units,
+The current build compiles `surface_mesh.cpp` and 15 algorithm translation units,
 including the numerical dependencies needed by these five families. The explicit
 list is in `scripts/build.mjs`. Binding code is split into `core.cpp`,
-`algorithms.cpp`, the shared internal `mesh.hpp`, and the small `runtime.cpp`.
+`algorithms.cpp`, `inspection.cpp`, `triangulation.cpp`, the shared internal
+`mesh.hpp`, and the small `runtime.cpp`.
 Use ordinary C/C++ source/header files; no generated `.inc` binding fragments.
 Do not invoke upstream's top-level CMake: `src/pmp/CMakeLists.txt` unconditionally
 includes `io/CMakeLists.txt`, and also searches for OpenMP. The following never
-enter our build or npm payload:
+enter our production build or npm payload (host validation uses original tests
+and shape helpers separately):
 
 - `src/pmp/io`, viewers, Polygonal, examples, applications, upstream test tools;
 - GLFW, GLAD, ImGui, image codecs, windowing or rendering dependencies;
@@ -70,8 +74,8 @@ mesh/matrix conversion helpers, and curvature/distance visualization helpers,
 remain internal when needed and are not additional exports.
 
 The standalone functions `clamp_cot`, `clamp_cos`, `angle`, `sin`, `cos`, `cotan`,
-`triangle_area`, `dist_point_line_segment` and `dist_point_triangle` retain their
-C declarations but are not Wasm exports. Their inexpensive scalar calls do not
+`triangle_area`, `dist_point_line_segment` and `dist_point_triangle` retain declarations in the separate design header but are not implemented C
+functions or Wasm exports. Their inexpensive scalar calls do not
 justify JS/Wasm crossings. Native algorithm use remains eligible for inlining;
 unused C entry points are removed. A future bulk geometry helper needs a measured
 use case. [wasm-exports.json](wasm-exports.json) is the proposed complete export
@@ -224,7 +228,9 @@ algorithm. The implemented transfer contract is:
 | Operation | Accepted attached channels beyond core storage and derived results |
 | --- | --- |
 | Normals, feature detection | All; custom channels are untouched |
-| Explicit/implicit smoothing | All; topology and custom rows are unchanged |
+| Explicit/implicit smoothing, fairing | All; topology and custom rows are unchanged |
+| Curvature, connected components, measurements | All; only the named result property is updated where applicable |
+| Triangulation | All vertex/corner/face channels, paired features; arbitrary edge channels rejected |
 | Decimation | Custom vertex rows, `v:tex`, native `h:tex`, paired features, selection |
 | Uniform/adaptive remeshing | Paired features and `v:selected` only |
 | Catmull-Clark/Loop | Paired features only |
@@ -248,7 +254,7 @@ selection, feature, seam, or quality constraints prevent further collapses.
 `pmp_mesh_unsupported_properties(mesh, algorithm)` is an allocation-free,
 non-mutating preflight returning a domain bitmask: vertex=1, halfedge=2, edge=4,
 face=8. An invalid feature pair marks vertex and edge. Zero checks property
-support only. The ten mutating algorithm bindings enforce this policy before
+support only. The geometry-changing algorithm bindings enforce this policy before
 mutation. Callers may explicitly remove unsupported properties or run the
 operation on a separate mesh; the binding never silently defaults UV/color/skin
 channels. Arbitrary interpolation callbacks and attribute-transfer frameworks
@@ -256,6 +262,29 @@ are outside this phase.
 
 Successful geometry mutations remove stale `v:normal`, `f:normal`, `v:curv`,
 `geodesic:distance` and `v:component` results. Recompute results after the call.
+Triangulation adds no vertices. Each new face copies its source polygon's
+`user:*` face rows; each new halfedge copies the source polygon corner targeting
+that same vertex, for `user:*` channels and native `h:tex`. Existing halfedge
+rows and edge flags stay intact; new diagonals start with `e:feature=false`.
+This preserves multiple corner UV sets and face IDs without averaging joint IDs
+or crossing seams. Arbitrary edge channels are rejected because new diagonals
+have no source row. Copying the necessary new rows occurs inside native storage;
+the ABI does not stage or duplicate complete attribute buffers.
+
+Curvature writes `v:curv` (float32); components writes `v:component` (int32),
+including isolated vertices as individual components. Read both through property
+views. Fairing honors native `v:selected` and boundary constraints; `k` must be
+at least one. Native higher orders are accepted; matrix fill and solve costs can
+increase substantially. Every numerical method retains its native degeneracy
+preconditions and precision.
+
+Bounds requires vertices, edge statistics require edges, and minimum face area
+requires faces. Centroid requires finite positive total face area. Undefined
+empty-domain calls trap; empty surface area, volume, and component count are zero.
+Volume retains PMP's absolute result and triangle precondition. Interpret it as
+enclosed volume only for closed, consistently oriented meshes; it is not an
+orientation detector or self-intersection validator.
+
 Reserve and garbage collection follow PMP's native property movement; clear
 removes properties. Future algorithms must undergo the same transfer review.
 
@@ -289,12 +318,19 @@ shape/count arithmetic receive cheap boundary validation; raw pointers remain
 caller-owned valid spans. Check overflow before multiplication/allocation, and
 retain the signed 32-bit Eigen index limit. Numerical/topological preconditions
 from upstream remain applicable, including nondegenerate inputs where required.
-The five-family entry points reject non-finite coordinates and invalid scalar
-parameters. Cotan smoothing and hole filling also check per-polygon dense matrix
+The implemented geometry/inspection entry points reject non-finite coordinates and invalid scalar
+parameters. Cotan smoothing, curvature, fairing and hole filling also check per-polygon dense matrix
 dimensions in uint64 before entering Eigen; `(valence+1)^2` doubles must fit its
 signed wasm32 allocation limit. Finite inputs alone do not guarantee finite
 results for degenerate geometry. Remeshing/hole-filling flip energies use int64
 operands so high-valence fans cannot overflow squared int32 errors.
+Triangulation bounds its two quadratic tables before allocation: `valence^2`
+must fit `INT32_MAX / 8`. Its native cubic-time search remains unchanged; the
+allocation guard is not a latency limit. A failed split now traps instead of
+indexing the native `-1` sentinel. The binding also checks that every source
+n-gon yields exactly n-2 triangles: native blocked-diagonal cases can otherwise
+return an unsplit polygon. This failure may follow partial mutation and requires
+discarding the instance.
 
 ## Freestanding runtime and patches
 
@@ -346,16 +382,17 @@ Internal recoverable solver failures must be tested before accepting a patch.
 
 ### Feasibility evidence
 
-The five-family ABI 0 module exports 38 names including memory and has zero
+The expanded ABI 0 module exports 52 names including memory and has zero
 imports/start/init. `build/report.json` records the exact raw/gzip size, features,
 artifact hash and compiler versions. Node and Chromium run the same workflows;
-22 algorithm fixtures compare against untouched native PMP, including a tiny
+22 original-family and 43 extension fixtures compare against untouched native
+PMP, including a tiny
 remeshing mesh that exercises the original singular-inverse fallback. Attribute,
 seam, repeated-operation, size-guard and memory tests supplement those fixtures.
 A 50,000-valence fan regression exercises the widened flip energies and checks
 all resulting halfedge/triangle invariants in both runtimes.
 The earlier normals/features-only module was 72,725 bytes (24,531 gzip), which
-is not the size of the current five-family build.
+is not the size of the current expanded build.
 
 A limited SDK 32 core probe (mesh construction, destruction and position access)
 links and runs with no imports and no initialization call. After Binaryen it is
@@ -415,9 +452,20 @@ establish the feature-based target. [COMPATIBILITY.md](COMPATIBILITY.md) records
 primary browser support sources, tested runtimes, limits and the SIMD decision.
 
 Do not enable fast-math: PMP uses finite/degenerate checks and numerically
-sensitive solvers. Preserve upstream double precision. Later benchmark `-O3`
-against `-Os`/`-Oz` and inlining before changing the speed/size tradeoff;
-no single setting can guarantee both the fastest and smallest result.
+sensitive solvers. Preserve upstream double precision. The measured compiler,
+linker and Binaryen pass retains `-O3`/full LTO/Binaryen `-O3`; smaller compiler
+profiles slowed representative workloads. See PERFORMANCE.md for the tradeoffs.
+
+Keep the 64 KiB linear-memory stack. Ordinary scalar temporaries usually become
+Wasm locals, but Eigen's addressable dynamic scratch arrays used `alloca` with
+a 128 KiB per-buffer threshold. A 9,409-vertex smoothing case exceeded the stack.
+Set `EIGEN_STACK_ALLOCATION_LIMIT=0` so positive dynamic scratch buffers use the
+heap. This leaves fixed small matrices and scalars unchanged; Eigen's static
+fixed-object size assertion is disabled by that setting. Link `--stack-first`
+to place static data above the downward-growing stack. No larger stack or WASI
+runtime is required. Native-reference tests cover the failing mesh in Node and
+Chromium. `EIGEN_NO_ALLOCA` alone does not compile this pinned Eigen version's
+triangular matrix/vector templates, so use the limit setting without a vendor patch.
 
 Allocator tuning is permitted when measurements show significant cost. Start
 with the SDK's single-thread allocator and use mesh reservation and reusable
@@ -426,7 +474,12 @@ and fragmentation during remeshing, subdivision and sparse solves. If justified,
 replace only the allocator boundary with a compact single-thread allocator using
 linear-memory growth; preserve alignment, free/realloc behavior, overflow/OOM
 handling and C++ allocation compatibility. No allocator download or dependency
-is assumed. A bump allocator that leaks algorithm temporaries is not a valid
+is assumed. The current build retains SDK dlmalloc and sets
+`EIGEN_MALLOC_ALREADY_ALIGNED=1`: wasm32 malloc already provides the 16-byte
+alignment Eigen needs. Compile-time checks enforce the target's `max_align_t`
+and Eigen alignment requirements. Diagnostic allocator wrapping stays outside
+the production ABI and measures usable allocation capacity separately from
+retained linear-memory pages. A bump allocator that leaks algorithm temporaries is not a valid
 replacement. Select a replacement only after representative repeated-operation
 and fragmentation benchmarks; keep one allocator in the shipped binary.
 
@@ -453,7 +506,7 @@ public remote exists. Do not publish stubs or paths to nonexistent build output.
 
 ## Implementation acceptance
 
-1. Check C11 and C++20 header validity, wasm32 sizes/offsets, the 76-function C
+1. Check C11 and C++20 header validity, wasm32 sizes/offsets, the implemented public header/export match plus the proposed 76-function
    coverage list, the 67 Wasm algorithms, and a frozen ABI/export manifest.
 2. Compile only the source allowlist; inspect archive extraction and the final
    linker map before stripping. Reject live stream/printf/scanf, file/socket,

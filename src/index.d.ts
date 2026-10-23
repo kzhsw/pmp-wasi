@@ -32,6 +32,22 @@ export interface CoreExports {
   pmp_explicit_smoothing(mesh: number, iterations: number, uniform: number): void;
   pmp_implicit_smoothing(mesh: number, timestep: number, iterations: number, uniform: number, rescale: number): void;
   pmp_fill_hole(mesh: number, halfedge: number): void;
+  pmp_triangulate(mesh: number): void;
+  pmp_triangulate_face(mesh: number, face: number): void;
+  pmp_connected_components(mesh: number): number;
+  /** Writes [minX,minY,minZ,maxX,maxY,maxZ] to caller-owned float storage. */
+  pmp_bounds(mesh: number, output: number): void;
+  pmp_surface_area(mesh: number): number;
+  /** Absolute native volume; meaningful for closed, consistently oriented triangles. */
+  pmp_volume(mesh: number): number;
+  pmp_centroid(mesh: number, output: number): void;
+  pmp_mean_edge_length(mesh: number): number;
+  pmp_min_edge_length(mesh: number): number;
+  pmp_min_face_area(mesh: number): number;
+  pmp_curvature(mesh: number, kind: number, smoothingSteps: number, tensor: number, twoRing: number): void;
+  pmp_fair(mesh: number, k: number): void;
+  pmp_minimize_area(mesh: number): void;
+  pmp_minimize_curvature(mesh: number): void;
   pmp_vertex_normals(mesh: number): void;
   pmp_face_normals(mesh: number): void;
   pmp_vertex_normal(mesh: number, vertex: number, output: number): void;
@@ -46,8 +62,10 @@ export const Property: Readonly<{ BOOL: 0; I32: 1; U32: 2; F32: 3; F64: 4;
   VEC2F: 5; VEC3F: 6; VEC4F: 7; VEC4U32: 8; VEC4U16: 9; RGBA8: 10 }>;
 export const Domain: Readonly<{ VERTEX: 0; HALFEDGE: 1; EDGE: 2; FACE: 3 }>;
 export const Winding: Readonly<{ CCW: 0; CW: 1 }>;
+export const Curvature: Readonly<{ MIN: 0; MAX: 1; MEAN: 2; GAUSS: 3; MAX_ABS: 4 }>;
 export const Algorithm: Readonly<{ DECIMATE: 0; UNIFORM_REMESH: 1; ADAPTIVE_REMESH: 2;
-  CATMULL_CLARK: 3; LOOP: 4; QUAD_TRI: 5; LINEAR: 6; EXPLICIT_SMOOTH: 7; IMPLICIT_SMOOTH: 8; FILL_HOLE: 9 }>;
+  CATMULL_CLARK: 3; LOOP: 4; QUAD_TRI: 5; LINEAR: 6; EXPLICIT_SMOOTH: 7; IMPLICIT_SMOOTH: 8; FILL_HOLE: 9;
+  TRIANGULATE: 10; CURVATURE: 11; FAIR: 12; CONNECTED_COMPONENTS: 13 }>;
 export interface MeshView {
   vertices: number; edges: number; faces: number;
   liveVertices: number; liveEdges: number; liveFaces: number;

@@ -1,8 +1,8 @@
 # Compatibility baseline
 
 The development module reports ABI 0; only `exports/core.json` is implemented.
-The remaining declarations in `include/pmp.h` are future API, not callable
-exports. wasm32 pointers and indices are unsigned 32-bit offsets; native scalar
+`include/pmp.h` declares exactly that API and defines the matching ABI version.
+Future declarations live separately in `design/pmp-proposed.h` and are not callable. wasm32 pointers and indices are unsigned 32-bit offsets; native scalar
 positions are float32, while Eigen operators and solvers remain float64.
 
 ## Chrome 75 target
@@ -12,7 +12,7 @@ its Wasm instructions and JS API requirements. This is a feature-based minimum;
 actual execution on Chrome 75/76 has not been certified. The available test
 runtimes are Node 24.16.0 and Chromium 151.0.7922.34 (Playwright 1.59.1). Both
 byte and compiled-module paths pass in Node, and byte and streaming compilation
-paths pass in Chromium, across all five algorithm families.
+paths pass in Chromium, across all implemented algorithms.
 
 ## Wasm
 
@@ -47,16 +47,21 @@ artifact under the same instruction limit.
 Keep `nontrapping-fptoint`: it is available in Chrome 75 and used by the emitted
 code. The conversions clamp overflow and produce zero for NaN; invalid API calls
 still trap. No libc rebuild, compiler download or lowering of these useful
-instructions is necessary. The Chrome 75 build is 327,093 bytes raw / 120,056
-gzip, with a 4,502-byte JS wrapper. All 317 function bodies are byte-identical to
-the earlier SDK-default build; the changes remove unnecessary metadata and its
-unused data-count section.
+instructions is necessary. The initial five-family Chrome 75 build was 327,093
+bytes raw / 120,056 gzip, with a 4,502-byte JS wrapper. Its 317 function bodies
+were byte-identical to the preceding SDK-default build; the compatibility change
+removed unnecessary metadata and its unused data-count section. Current size and
+tuning measurements are recorded in [PERFORMANCE.md](PERFORMANCE.md).
 
 Memory allocation is subject to the engine and available memory. Chrome 75/76
 has the older 2 GiB linear-memory ceiling; access above that requires Chrome 83
 or later, as described in [V8's memory-limit update](https://v8.dev/blog/4gb-wasm-memory).
 The module starts small and grows on demand. Allocation failure traps; it does
 not add a host runtime or fallback allocator.
+The linear-memory stack remains 64 KiB. Eigen's dynamic scratch buffers use
+the heap; scalar Wasm locals do not consume that linear-memory stack. The SDK's
+16-byte malloc alignment is checked at build time and reused by Eigen. These
+settings introduce no additional Wasm feature or runtime requirement.
 
 ## JavaScript
 
@@ -101,11 +106,11 @@ The earlier SDK-default five-family baseline was 327,197 bytes raw / 120,158
 gzip; the experimental
 SIMD build is 333,575 / 123,583 (+1.95% raw, +2.85% gzip). Both pass the same
 Node/Chromium correctness workflows. The scalar baseline's function bodies match
-the current Chrome 75 build byte-for-byte.
+that initial Chrome 75 build byte-for-byte.
 The experiment is not a second npm artifact
 or an automatic runtime-selection path.
 
-`scripts/bench.mjs` measures every entry point on a 1,681-vertex, 3,200-triangle
+The SIMD experiment measured all ten original family entry points on a 1,681-vertex, 3,200-triangle
 curved grid, except hole filling, which uses the small annulus refinement fixture.
 Each measurement starts with a fresh mesh; setup is excluded. Five warmups precede
 15 samples, variant order alternates, and the median is reported. A repeated

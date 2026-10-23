@@ -11,9 +11,16 @@
     "test:e2e": "node scripts/e2e.mjs",
     "test:e2e:node": "node scripts/e2e.mjs --node-only",
     "bench": "node scripts/bench.mjs",
-    "fixtures": "node scripts/native-fixture.mjs"
+    "fixtures": "node scripts/native-fixture.mjs",
+    "size": "node scripts/size.mjs",
+    "test:upstream": "node scripts/upstream-tests.mjs",
+    "test:fuzz": "node scripts/fuzz.mjs",
+    "tune": "node scripts/tune.mjs",
+    "profile:memory": "node scripts/memory.mjs"
   },
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "files": [
     "include/pmp.h",
     "DESIGN.md",
@@ -21,7 +28,15 @@
     "upstream.json",
     "wasm-exports.json",
     "exports/core.json",
-    "THIRD_PARTY_NOTICES.md"
+    "THIRD_PARTY_NOTICES.md",
+    "design/pmp-proposed.h",
+    "PERFORMANCE.md"
   ],
-  "keywords": ["pmp", "mesh", "wasm", "wasi-sdk", "geometry"]
+  "keywords": [
+    "pmp",
+    "mesh",
+    "wasm",
+    "wasi-sdk",
+    "geometry"
+  ]
 }

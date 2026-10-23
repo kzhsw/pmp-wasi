@@ -20,15 +20,22 @@ bool core_property(std::string_view name)
     return name == "v:point" || name == "v:connectivity" || name == "h:connectivity" ||
            name == "f:connectivity" || name == "v:deleted" || name == "e:deleted" || name == "f:deleted";
 }
-bool smooth(uint32_t op) { return op == PMP_EXPLICIT_SMOOTH || op == PMP_IMPLICIT_SMOOTH; }
+bool preserves_rows(uint32_t op)
+{
+    return op == PMP_EXPLICIT_SMOOTH || op == PMP_IMPLICIT_SMOOTH ||
+           op == PMP_CURVATURE || op == PMP_FAIR || op == PMP_CONNECTED_COMPONENTS;
+}
 bool feature_algorithm(uint32_t op)
 {
     return op == PMP_DECIMATE || op == PMP_UNIFORM_REMESH || op == PMP_ADAPTIVE_REMESH ||
-           op == PMP_CATMULL_CLARK || op == PMP_LOOP;
+           op == PMP_CATMULL_CLARK || op == PMP_LOOP || op == PMP_TRIANGULATE;
 }
 bool allowed(std::string_view name, uint32_t domain, uint32_t op)
 {
-    if (core_property(name) || derived(name) || smooth(op)) return true;
+    if (core_property(name) || derived(name) || preserves_rows(op)) return true;
+    // Triangulation preserves vertices and explicitly transfers face/corner
+    // rows. New diagonals have no source edge for arbitrary edge attributes.
+    if (op == PMP_TRIANGULATE && domain != PMP_EDGE) return true;
     if (feature_algorithm(op) && (name == "v:feature" || name == "e:feature")) return true;
     if ((op == PMP_DECIMATE || op == PMP_UNIFORM_REMESH || op == PMP_ADAPTIVE_REMESH) && name == "v:selected")
         return true;
@@ -40,7 +47,7 @@ bool allowed(std::string_view name, uint32_t domain, uint32_t op)
 }
 uint32_t unsupported(const pmp::SurfaceMesh& mesh, uint32_t op)
 {
-    require(op <= PMP_FILL_HOLE);
+    require(op <= PMP_CONNECTED_COMPONENTS);
     uint32_t mask = 0;
     for (uint32_t domain = PMP_VERTEX; domain <= PMP_FACE; ++domain)
         if (pmp::WasmAccess::properties(mesh, domain).any_property(
@@ -57,18 +64,25 @@ uint32_t unsupported(const pmp::SurfaceMesh& mesh, uint32_t op)
     }
     return mask;
 }
-pmp::SurfaceMesh& prepare(pmp_mesh* handle, uint32_t op, bool triangles = false)
+} // namespace
+
+namespace pmp_wasm {
+void check_mesh(const pmp::SurfaceMesh& mesh)
 {
-    auto& mesh = mesh_of(handle);
     compact(mesh);
-    require(unsupported(mesh, op) == 0);
-    require(!triangles || mesh.is_triangle_mesh());
     require(mesh.vertices_size() <= INT32_MAX && mesh.edges_size() <= INT32_MAX / 2 &&
             mesh.faces_size() <= INT32_MAX);
     for (auto v : mesh.vertices()) {
         const auto& p = mesh.position(v);
         require(std::isfinite(p[0]) && std::isfinite(p[1]) && std::isfinite(p[2]));
     }
+}
+pmp::SurfaceMesh& prepare(pmp_mesh* handle, uint32_t op, bool triangles)
+{
+    auto& mesh = mesh_of(handle);
+    check_mesh(mesh);
+    require(unsupported(mesh, op) == 0);
+    require(!triangles || mesh.is_triangle_mesh());
     return mesh;
 }
 void check_polygon_matrices(const pmp::SurfaceMesh& mesh, bool polygons)
@@ -90,6 +104,9 @@ void invalidate_results(pmp::SurfaceMesh& mesh)
     for (const char* name : {"v:normal", "v:curv", "geodesic:distance", "v:component"}) vertices.remove(name);
     pmp::WasmAccess::properties(mesh, PMP_FACE).remove("f:normal");
 }
+} // namespace pmp_wasm
+
+namespace {
 bool nonnegative(float value) { return std::isfinite(value) && value >= 0; }
 bool positive(float value) { return std::isfinite(value) && value > 0; }
 pmp::BoundaryHandling boundary(uint32_t handling)
