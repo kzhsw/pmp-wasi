@@ -139,6 +139,11 @@ export async function runScenarios(source, io, models = []) {
     ['strict projection policy', () => {}, { operation: 'subdivide', attributeTransfer: 'strict' }],
     ['projection distance limit', () => {}, { operation: 'subdivide', maxProjectionDistance: 1e-12 }],
     ['unpaired skin channels', f => f.primitive.setAttribute('WEIGHTS_1', null), { operation: 'smooth' }],
+    ['shared primitive with incompatible skin on another mesh', f => {
+      const mesh = f.doc.createMesh().addPrimitive(f.primitive);
+      const skin = f.doc.createSkin().addJoint(f.doc.getRoot().listSkins()[0].listJoints()[0]);
+      f.doc.createNode().setMesh(mesh).setSkin(skin);
+    }, { operation: 'smooth', filter: context => context.meshIndex === 0 }],
     ['normal-only morph target', f => f.primitive.listTargets()[0].setAttribute('POSITION', null), { operation: 'smooth' }],
     ['unsupported primitive extension', f => f.primitive.setExtension('KHR_materials_variants', f.doc.createExtension(KHRMaterialsVariants).createMappingList()), { operation: 'smooth' }],
     ['duplicate triangles', f => f.primitive.setIndices(f.accessor('bad-index', 'SCALAR', new Uint16Array([0, 1, 7, 0, 1, 7]))), { operation: 'smooth' }],

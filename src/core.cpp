@@ -112,7 +112,7 @@ static_assert(offsetof(pmp_mesh_view, positions) == 24 && offsetof(pmp_mesh_view
 #endif
 
 extern "C" {
-// ABI 0 identifies this development subset; v1 is frozen only with full coverage.
+// ABI 1 freezes the implemented layout and signatures in include/pmp.h.
 uint32_t pmp_abi_version() { return PMP_ABI_VERSION; }
 void* pmp_alloc(uint32_t bytes)
 {

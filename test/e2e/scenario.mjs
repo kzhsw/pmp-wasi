@@ -113,7 +113,7 @@ export async function runScenario(source, nativeFixtures, expectedExports) {
     return result;
   };
 
-  await run('freestanding ABI 0 contract', async () => {
+  await run('freestanding ABI 1 contract', async () => {
     equal(WebAssembly.Module.imports(module), [], 'no host imports');
     const exports = WebAssembly.Module.exports(module);
     equal(exports.map(entry => entry.name).sort(), [...expectedExports].sort(), 'exact exports');
@@ -121,7 +121,7 @@ export async function runScenario(source, nativeFixtures, expectedExports) {
     check(!exports.some(entry => /init|ctor|dtor|start|wasi/i.test(entry.name)), 'no initialization hooks');
     check(!hasStart(source), 'no start section in supplied bytes');
     const e = await instantiate(module);
-    equal(e.pmp_abi_version(), 0, 'development ABI');
+    equal(e.pmp_abi_version(), 1, 'stable ABI');
     check(e.memory instanceof WebAssembly.Memory, 'native memory export');
     check(typeof SharedArrayBuffer === 'undefined' || !(e.memory.buffer instanceof SharedArrayBuffer), 'unshared memory');
     equal(e.pmp_alloc(0), 0, 'zero allocation');

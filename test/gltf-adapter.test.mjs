@@ -99,3 +99,19 @@ test('joint indices are valid for every skin attached to a shared mesh', async (
   assert.deepEqual(geometry(f.doc), before);
   assert.equal(f.primitive.getAttribute('POSITION'), position);
 });
+
+test('shared primitives validate skins on every owning mesh, including unselected owners', async () => {
+  const f = fixture(), e = await instantiate(module);
+  const otherMesh = f.doc.createMesh('other-owner').addPrimitive(f.primitive);
+  const shortSkin = f.doc.createSkin('short-skin').addJoint(f.doc.getRoot().listSkins()[0].listJoints()[0]);
+  f.doc.createNode('other-skinned-owner').setMesh(otherMesh).setSkin(shortSkin);
+  const before = geometry(f.doc), position = f.primitive.getAttribute('POSITION');
+  assert.throws(() => process(f.doc, e, { operation: 'subdivide', method: 'linear', meshes: [f.mesh] }), /Joint index/);
+  assert.deepEqual(geometry(f.doc), before);
+  assert.equal(f.primitive.getAttribute('POSITION'), position);
+
+  const unskinned = fixture({ rich: false });
+  const shared = unskinned.doc.createMesh().addPrimitive(unskinned.primitive);
+  unskinned.doc.createNode().setMesh(shared).setSkin(unskinned.doc.createSkin().addJoint(unskinned.doc.createNode()));
+  assert.throws(() => process(unskinned.doc, e, { operation: 'smooth', meshes: [unskinned.mesh] }), /requires joint\/weight/);
+});

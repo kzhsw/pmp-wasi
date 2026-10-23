@@ -72,13 +72,17 @@ export function readAttributes(primitive, count) {
 }
 
 export function validateSkinBindings(input, context) {
-  const skins = context.document.getRoot().listNodes()
-    .filter(node => node.getMesh() === context.mesh && node.getSkin()).map(node => node.getSkin());
+  // Editing a shared primitive affects every owning mesh, even when selection
+  // reached it through only one mesh. Check every affected node's joint table.
+  const root = context.document.getRoot();
+  const owners = new Set(root.listMeshes().filter(mesh => mesh.listPrimitives().includes(context.primitive)));
+  const skins = root.listNodes()
+    .filter(node => owners.has(node.getMesh()) && node.getSkin()).map(node => node.getSkin());
   if (input.skin.length && !input.skin.some(channel => channel.set === 0))
     throw new TypeError('Skin attributes require JOINTS_0 and WEIGHTS_0');
   if (!skins.length) return;
   if (!input.skin.length) throw new TypeError('A primitive attached to a skin requires joint/weight attributes');
-  const jointCount = Math.min(...skins.map(skin => skin.listJoints().length));
+  const jointCount = skins.reduce((min, skin) => Math.min(min, skin.listJoints().length), Infinity);
   for (const { joints } of input.skin) for (const joint of joints)
     if (joint >= jointCount) throw new RangeError('Joint index exceeds a skin attached to this shared mesh');
 }

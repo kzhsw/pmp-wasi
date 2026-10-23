@@ -40,7 +40,8 @@ const inputs = [...new Set([...metadata.sources, metadata.profileSource || 'test
   'scripts/build.mjs', 'scripts/memory.mjs'])];
 const sourceHashes = Object.fromEntries(inputs.map(path => [path, sha256(readFileSync(path))]));
 if (metadata.objectSignature) {
-  const signature = createHash('sha256').update(JSON.stringify({ flags: metadata.flags, sources: metadata.sources, toolchain: metadata.toolchain }));
+  const signature = createHash('sha256').update(JSON.stringify({ flags: metadata.flags, sources: metadata.sources,
+    toolchain: metadata.toolchain, runtimeArchives: metadata.runtimeArchives }));
   for (const path of [...metadata.sources.filter(path => path.startsWith('src/')), 'src/mesh.hpp', 'include/pmp.h', 'vendor/manifest.json'])
     signature.update(path).update(readFileSync(path));
   assert.equal(signature.digest('hex'), metadata.objectSignature, 'Source/flags differ from the compiled diagnostic artifact');

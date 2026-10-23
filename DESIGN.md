@@ -1,16 +1,17 @@
 # pmp-wasi v1 design
 
-Status: development ABI 0 implemented; no future ABI version is frozen.
-The initial development module reports ABI 0 and implements mesh ownership,
+Status: release candidate 0.1.0, implemented ABI 1 frozen.
+The module reports ABI 1 and implements mesh ownership,
 construction, properties, normals, feature detection, and all ten entry points
 in the five selected families: decimation, remeshing, subdivision, smoothing
 and hole filling, plus triangulation, connected components, seven mesh
 measurements, curvature and three fairing entry points. Its exact exports are
 in [exports/core.json](exports/core.json). The public [C header](include/pmp.h)
-declares exactly those functions, with `PMP_ABI_VERSION=0` matching the runtime.
+declares exactly those functions, with `PMP_ABI_VERSION=1` matching the runtime.
 Unimplemented declarations and their supporting types are isolated in
-[design/pmp-proposed.h](design/pmp-proposed.h). Freeze a future ABI only after
-implementation and validation; the design header is not a linkable API.
+[design/pmp-proposed.h](design/pmp-proposed.h). These future proposals are not a
+release requirement or a linkable API. ABI 1 freezes only the implemented set.
+The matching JS wrapper rejects other ABIs; no compatibility layer is provided.
 
 ## Scope and source boundary
 
@@ -486,8 +487,8 @@ and fragmentation benchmarks; keep one allocator in the shipped binary.
 
 ## JS package
 
-One `pmp.wasm`, an ESM loader, `.d.ts` declarations and the C header. No runtime
-or development npm dependencies are required. No bundler, TypeScript compiler,
+One `pmp.wasm`, an ESM loader, `.d.ts` declarations and the C header. No core runtime npm dependencies are required. The optional glTF adapter has an
+optional core peer, and its tests use core/extensions as development dependencies. No bundler, TypeScript compiler,
 CommonJS duplication, base64 Wasm embedding, or generated C++ binding framework.
 Retain upstream MIT, Eigen MPL-2.0 and applicable SDK runtime license notices.
 
@@ -499,16 +500,15 @@ Optional view helpers construct typed arrays over current memory and check the
 ABI version. They do not wrap every algorithm or copy mesh arrays. Bulk vertex
 and face construction are the only planned helpers to reduce crossing costs.
 
-The repository is intended for public release, but nothing is published now.
-Keep npm `private: true` during implementation. Before release, add real package
-entry points, declarations and an explicit Wasm subpath export; include only the
-built JS/Wasm, C header and notices. Supply actual repository metadata when a
-public remote exists. Do not publish stubs or paths to nonexistent build output.
+The repository has a prepared 0.1.0 candidate. `private: true` remains until
+publication is authorized. The public package contains the implemented JS/Wasm,
+C header, user documentation and complete dependency notices, with an explicit
+Wasm subpath export. Proposed APIs are excluded. See [RELEASING.md](RELEASING.md)
+for staging, input provenance, installed-tarball checks and publication gates.
 
 ## Implementation acceptance
 
-1. Check C11 and C++20 header validity, wasm32 sizes/offsets, the implemented public header/export match plus the proposed 76-function
-   coverage list, the 67 Wasm algorithms, and a frozen ABI/export manifest.
+1. Check C11 and C++20 header validity, wasm32 sizes/offsets, the implemented public header/export match and the frozen ABI/export manifest. Keep the proposed coverage list separate.
 2. Compile only the source allowlist; inspect archive extraction and the final
    linker map before stripping. Reject live stream/printf/scanf, file/socket,
    clock/random, process/environment, thread/OpenMP, exception-unwind and unused
@@ -519,8 +519,8 @@ public remote exists. Do not publish stubs or paths to nonexistent build output.
    explicit public exports. Instantiate with `{}` and exercise algorithms
    immediately, including repeated calls, without initialization.
 4. Compare deterministic fixtures with native PMP: polygon/triangle topology,
-   remeshing and decimation, normals/curvature, matrix operators, solvers,
-   parameterization, shapes, holes, boundaries and degeneracies. Include the
+   remeshing and decimation, normals/curvature, internal matrix operators/solvers,
+   holes, boundaries and degeneracies. Include the
    remeshing singular-solve fallback and all algorithm families.
 5. Prove storage aliasing in both directions, correct empty properties,
    bool-property access, matrix layouts, reserve/growth invalidation and entity

@@ -138,9 +138,9 @@ skinning, morphs/animations, scope/budget behavior, CW input, bad topology,
 transaction failures and poisoned instances. Bounded deterministic fuzzing
 checks counts, finite outputs, indices, attribute cardinality and graph/skin/
 morph invariants. NodeIO and browser WebIO round-trip GLB results. Both runtimes
-run the same scenarios and compare deterministic summaries. Private local real
-models exercise skin/animation, dual UV, colors, morph targets and a medium mesh;
-paths and artifacts remain outside tracked public files.
+run the same scenarios and compare deterministic summaries. Optional
+caller-supplied models can supplement the synthetic suite; their paths and
+artifacts remain outside tracked public files.
 
 The optional adapter/dependency browser baseline is documented separately from
 the core Chrome 75 feature target. No historical browser certification is

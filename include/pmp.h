@@ -1,4 +1,4 @@
-/* Implemented wasm32 development ABI 0; matches exports/core.json.
+/* Implemented wasm32 ABI 1; matches exports/core.json.
  * Unimplemented declarations are separate in design/pmp-proposed.h.
  * SPDX-License-Identifier: MIT
  * All pointers address the instance's linear memory. No C++ objects cross ABI.
@@ -14,7 +14,7 @@
 extern "C" {
 #endif
 
-#define PMP_ABI_VERSION 0u
+#define PMP_ABI_VERSION 1u
 #define PMP_INVALID_INDEX UINT32_MAX
 
 typedef struct pmp_mesh pmp_mesh;

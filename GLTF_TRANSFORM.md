@@ -5,7 +5,7 @@ decimation, remeshing, subdivision, smoothing and hole filling, plus fairing,
 normal generation and read-only measurements. It uses the same freestanding
 Wasm module as the core. Only this entry point requires the optional peer
 `@gltf-transform/core` (tested with 4.5.1). The core entry point remains independent
-of glTF-Transform. The package is private and is not published yet.
+of glTF-Transform. Version 0.1.0 is prepared for its first release and is not published yet.
 
 ```js
 import { instantiate } from 'pmp-wasi';
@@ -59,7 +59,8 @@ canonicalized to CCW output, as required by glTF.
 
 All distances, areas, solver settings and measurements are in **mesh-local
 coordinates**. Node transforms, instancing, skeletons and animation bindings are
-retained. A shared mesh is changed for all of its nodes; clone it explicitly
+retained. A shared primitive is changed in every owning mesh, and skin validation covers
+all affected owners. A shared mesh is changed for all of its nodes; clone it explicitly
 before calling the adapter when only one instance should change.
 
 Decimation `ratio` defaults to 0.5. `targetVertices` is an alternative, and
@@ -164,7 +165,8 @@ more appropriate. Wasm memory can grow but cannot shrink.
 `npm run test:gltf:node` runs synthetic and seeded model tests with GLB
 serialization/reloading. `npm run test:gltf` additionally runs the same scenarios
 through browser WebIO and compares results with NodeIO. Set `ESBUILD_MODULE` and
-the existing Playwright/browser environment variables described in README.
+the existing Playwright/browser environment variables described in the
+[contributor guide](https://github.com/kzhsw/pmp-wasi/blob/master/CONTRIBUTING.md).
 `--seeds 256 --seed 0` selects a bounded reproducible fuzz run. `--models FILE`
 accepts a private JSON array of `{path, name, primitives?: [[meshIndex,
 primitiveIndex]], options?: {...}}` GLB cases. Inputs are read only; asset paths

@@ -1,8 +1,9 @@
 # Compatibility baseline
 
-The development module reports ABI 0; only `exports/core.json` is implemented.
-`include/pmp.h` declares exactly that API and defines the matching ABI version.
-Future declarations live separately in `design/pmp-proposed.h` and are not callable. wasm32 pointers and indices are unsigned 32-bit offsets; native scalar
+The module reports ABI 1. The C header and JS wrapper match its 51 implemented
+functions plus memory. Use the wrapper and binary from the same package version;
+there is no version negotiation or compatibility layer. Proposed APIs are not
+packaged or callable. wasm32 pointers and indices are unsigned 32-bit offsets; native scalar
 positions are float32, while Eigen operators and solvers remain float64.
 
 ## Chrome 75 target
@@ -164,3 +165,9 @@ copies accessor data across JS/Wasm memory and uses a JS BVH for approximate
 attribute transfer. See [GLTF_TRANSFORM.md](GLTF_TRANSFORM.md) for ownership and
 compatibility limits. Core/extensions are development dependencies; only core
 is an optional runtime peer of the separate adapter.
+
+Public declarations were checked with TypeScript 5.9.3 in strict NodeNext mode.
+For the optional adapter, include `ES2022`, `DOM` and `ESNext.Float16` in `lib`:
+the peer SDK's declarations mention Float16Array, even when the application does
+not use that extension. This declaration requirement does not enable float16
+Wasm instructions or raise the baseline for ordinary core/adapter inputs.

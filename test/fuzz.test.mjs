@@ -36,7 +36,7 @@ test('unexpected traps in a valid workflow retain the replay seed and original e
     3, 3, 2, 0, 0,
     5, 3, 1, 0, 1,
     7, exports.length, ...exports,
-    10, 10, 2, 4, 0, 0x41, 0, 0x0b, 3, 0, 0, 0x0b,
+    10, 10, 2, 4, 0, 0x41, 1, 0x0b, 3, 0, 0, 0x0b,
   ]);
   await assert.rejects(runFuzz(module, { seed: 47, seeds: 1 }), error => {
     assert.equal(error.seed, 47);

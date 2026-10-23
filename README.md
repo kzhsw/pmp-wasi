@@ -1,12 +1,88 @@
 # pmp-wasi
 
-A minimal port of [PMP](https://github.com/pmp-library/pmp-library) algorithms to
-freestanding, single-threaded WebAssembly using wasi-sdk.
+[PMP](https://github.com/pmp-library/pmp-library) mesh processing in a compact,
+freestanding WebAssembly module. Decimate, remesh, subdivide, smooth and fill
+holes through a direct C API, with a small JavaScript loader and zero-copy views
+of native mesh storage.
 
-The development build implements the five requested algorithm families and
-these additional mesh operations:
+The module is **334,638 bytes** (125,248 gzip). It has no runtime imports or
+initialization calls. It runs single-threaded without WASI, Emscripten, a
+filesystem, network access or workers. The core JS entry has no dependencies.
+The project is **MIT licensed**, matching PMP; bundled dependencies retain their
+own [licenses and notices](THIRD_PARTY_NOTICES.md).
 
-| Family | Direct C/Wasm functions |
+Version **0.1.0 / ABI 1** is prepared for the first release and is not published
+to npm yet. Install the locally prepared tarball:
+
+```sh
+npm install ./pmp-wasi-0.1.0.tgz
+```
+
+## Load the module
+
+In Node.js 22 or later:
+
+```js
+import { readFile } from 'node:fs/promises';
+import { instantiate, meshView } from 'pmp-wasi';
+
+const bytes = await readFile(new URL(import.meta.resolve('pmp-wasi/pmp.wasm')));
+const pmp = await instantiate(bytes);
+```
+
+For a browser, serve `src/index.js` and `dist/pmp.wasm` from the package as
+`/assets/pmp/index.js` and `/assets/pmp/pmp.wasm`. Load them from a module script:
+
+```js
+import { instantiate, meshView } from '/assets/pmp/index.js';
+
+async function main() {
+  const response = await fetch('/assets/pmp/pmp.wasm');
+  if (!response.ok) throw new Error(`Wasm request failed: ${response.status}`);
+  const pmp = await instantiate(await response.arrayBuffer());
+  // Use pmp here.
+}
+main().catch(console.error);
+```
+
+`instantiate` also accepts a compiled `WebAssembly.Module`, so it can be shared
+across independent instances. For streaming compilation, pass
+`await WebAssembly.compileStreaming(fetch(url))` and serve the Wasm file with
+`Content-Type: application/wasm`. Bundlers can resolve the public
+`pmp-wasi/pmp.wasm` asset path using their asset handling. Fetching and file
+loading remain under your control. Use the JS wrapper and Wasm binary from the
+same package version; no compatibility layer is provided.
+
+## Process a mesh
+
+With `pmp` loaded as above, create a triangle, write its positions directly into
+Wasm memory, and subdivide it:
+
+```js
+const mesh = pmp.pmp_mesh_create();
+pmp.pmp_mesh_add_vertices(mesh, 3);
+meshView(pmp, mesh).positions.set([
+  0, 0, 0,
+  1, 0, 0,
+  0, 1, 0,
+]);
+pmp.pmp_mesh_add_triangle(mesh, 0, 1, 2);
+pmp.pmp_linear_subdivision(mesh);
+
+const result = meshView(pmp, mesh);
+console.log(result.liveVertices, result.liveFaces); // 6, 4
+const positions = result.positions.slice();       // Optional owned JS copy.
+pmp.pmp_mesh_destroy(mesh);
+```
+
+Views alias native storage. Reacquire them after calls that allocate or mutate,
+including view-helper metadata allocations and operations on other meshes.
+Connectivity is a read-only halfedge structure; positions and exposed attribute
+rows are writable. Release owned meshes with `pmp_mesh_destroy`, and scratch
+buffers with `pmp_free`. If a native call traps, discard the whole instance
+without calling cleanup functions on it.
+
+| Operation | C / Wasm entry points |
 | --- | --- |
 | Decimation | `pmp_decimate` |
 | Remeshing | `pmp_uniform_remeshing`, `pmp_adaptive_remeshing` |
@@ -14,90 +90,56 @@ these additional mesh operations:
 | Smoothing | `pmp_explicit_smoothing`, `pmp_implicit_smoothing` |
 | Hole filling | `pmp_fill_hole` |
 | Triangulation | `pmp_triangulate`, `pmp_triangulate_face` |
-| Components | `pmp_connected_components` |
-| Measurements | `pmp_bounds`, `pmp_surface_area`, `pmp_volume`, `pmp_centroid`, `pmp_mean_edge_length`, `pmp_min_edge_length`, `pmp_min_face_area` |
-| Curvature | `pmp_curvature` |
 | Fairing | `pmp_fair`, `pmp_minimize_area`, `pmp_minimize_curvature` |
+| Inspection | Bounds, area, volume, centroid, edge lengths, face area, curvature, connected components |
 
-It also provides mesh construction, normals, feature detection, zero-copy native
-views, typed attributes, and CW/CCW input with per-corner mappings. Multiple UV
-sets, colors and skinning channels have native storage. Attribute transfer has
-explicit limits: smoothing and fairing preserve channels; triangulation copies
-source polygon corner/face channels and preserves vertices; decimation retains surviving
-vertex rows and supports PMP's seam-aware `h:tex`; other topology changes reject
-channels they cannot transfer. An allocation-free preflight query reports these
-before mutation. See the [attribute contract](DESIGN.md#additional-attributes-and-winding).
+Normals and feature detection are also included. The [API guide](API.md) explains
+ownership, attributes, winding and algorithm preconditions. The implemented
+[C header](include/pmp.h) and TypeScript declarations give every signature.
 
-[exports/core.json](exports/core.json) is the exact implemented export list
-(ABI 0). The [C header](include/pmp.h) declares exactly that implemented API and
-version. Unimplemented declarations live in [design/pmp-proposed.h](design/pmp-proposed.h). The core has no runtime dependencies. This private project targets a future
-public npm release; development JS entry points are available, while the Wasm
-artifact remains a local build and runtime distribution notices are completed.
+## Attributes and glTF
 
-Build with existing WASI SDK and Binaryen installations. Set `WASI_SDK_PATH`
-and `BINARYEN_PATH` to their directories, then run:
+The core stores multiple UV sets, colors, joint indices, weights and custom
+channels in native property arrays. Bulk face insertion accepts CW or CCW input
+and can map each source corner to a native halfedge. Attribute preservation
+depends on the operation; the core rejects channels it cannot transfer. Query
+`pmp_mesh_unsupported_properties` before mutation.
+
+For glTF assets, install the optional peer:
 
 ```sh
-npm ci --ignore-scripts
-npm run build
-npm test
-npm run test:e2e
-npm run bench
-npm run size
-npm run test:upstream
-npm run test:fuzz
-npm run profile:memory -- --build
+npm install @gltf-transform/core@^4.5.1
 ```
 
-Browser tests require `PLAYWRIGHT_MODULE`, `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, and
-optionally `PLAYWRIGHT_CHROMIUM_ARGS`/the browser's system library search path.
-They use an existing installation and download nothing. `npm run test:e2e:node`
-runs the same workflows in Node alone. `npm run fixtures` regenerates the native test
-baselines with a host compiler and the pinned, unmodified checkout selected by
-`PMP_UPSTREAM_PATH`.
+```js
+import { NodeIO } from '@gltf-transform/core';
+import { decimate, smooth } from 'pmp-wasi/gltf-transform';
 
-The build writes `build/pmp-core.wasm` and `build/report.json`. It uses no network,
-checks exact exports, rejects host imports and live I/O/runtime symbols, proves
-the unused constructor empty before removing it, and validates instructions
-against the Chrome 75 feature limit. No WASI host or initialization call is
-needed. Node/browser tests exercise all implemented algorithm entry points, native
-reference results, repeated operations, seams, attributes, winding, memory
-growth, traps and remeshing's numerical fallback.
+const io = new NodeIO();
+const document = await io.read('input.glb');
+await document.transform(
+  decimate(pmp, { ratio: 0.6, targetScope: 'document' }),
+  smooth(pmp, { iterations: 1 }),
+);
+await io.write('output.glb', document);
+```
 
-Import `instantiate`, `meshView`, `attributeView`, `Property`, `Domain`, `Winding`,
-`Algorithm` and `Curvature` from `src/index.js` during development. `instantiate(bytes)` or
-`instantiate(module)` returns the raw exports. The wrapper does not load files,
-fetch URLs, copy mesh buffers, or wrap individual algorithms. Types are in
-`src/index.d.ts`; [examples/core.mjs](examples/core.mjs) shows direct storage,
-multiple attributes and preflight use.
+Register any extensions required by your assets with NodeIO or WebIO. Transforms
+accept exports from `instantiate`, a `WebAssembly.Instance`, or a wrapper
+containing `instance` or `exports`. Select whole documents, meshes or primitives
+and override parameters per primitive. The adapter copies accessor data and
+supports approximate transfer of UVs, colors, morph targets and multiple skin
+sets when topology changes. See the [glTF guide](GLTF_TRANSFORM.md) for all
+options and transfer limits.
 
-Borrowed arrays must be reacquired after allocation or mutation, including
-helper metadata allocations. Discard the entire instance after a trap.
-[DESIGN.md](DESIGN.md) specifies ownership, preconditions and source boundaries;
-[COMPATIBILITY.md](COMPATIBILITY.md) records the Chrome 75/76 feature target,
-Wasm/JS requirements and tested runtimes. [upstream.json](upstream.json) pins the reviewed sources.
+## Compatibility
 
-`npm run size` relinks verified build objects to measure each added export group.
-`npm run test:upstream` runs the relevant unchanged PMP tests against both original
-and adapted native C++ sources; it requires `PMP_UPSTREAM_PATH` and the checkout's
-bundled GoogleTest. `npm run test:fuzz` runs seeded JS/Wasm cases and a C11 caller
-against the adapted native implementation with AddressSanitizer and
-UndefinedBehaviorSanitizer. Both use existing local compilers and dependencies.
-`npm run profile:memory -- --build` creates a separate diagnostic artifact and
-checks allocation peaks, reservation choices and repeated mesh lifetimes.
-[PERFORMANCE.md](PERFORMANCE.md) records size, compiler/linker/Binaryen tuning,
-memory measurements and the selected allocator configuration.
+The core targets Chrome 75+ features; the optional glTF adapter targets Chrome
+93+. Historical Chrome versions have not been execution-tested. Tests run in
+Node 24 and current Chromium. Wasm uses float32 positions, float64 solver
+arithmetic, a 16 KiB linear-memory stack and one initial 64 KiB memory page.
+SIMD and extended constants are disabled. See [compatibility](COMPATIBILITY.md)
+and [performance measurements](PERFORMANCE.md) for the precise scope.
 
-The optional [glTF-Transform adapter](GLTF_TRANSFORM.md) is available through
-`pmp-wasi/gltf-transform`. It provides all five mesh-processing families plus
-fairing, normals and measurements, with document/mesh/primitive selection,
-attribute and morph transfer, and multi-set skinning. It accepts caller-owned
-PMP exports or instances. `@gltf-transform/core` is an optional peer and test
-dependency; importing the core does not load it. Adapter copies and approximate
-transfer policies are separate from the core's zero-copy contract.
-
-Run `npm run test:gltf:node` for its NodeIO tests, or `npm run test:gltf` with
-`ESBUILD_MODULE` pointing to an existing esbuild installation plus the browser
-settings above. The latter compares NodeIO and WebIO GLB roundtrips, synthetic
-models, seeded fuzz cases and optional local GLB fixtures. No browser, compiler
-or bundler is downloaded by these scripts.
+To build or contribute, see the repository's
+[contributor guide](https://github.com/kzhsw/pmp-wasi/blob/master/CONTRIBUTING.md).

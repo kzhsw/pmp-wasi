@@ -6,6 +6,17 @@ import { join } from 'node:path';
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 export function verifyVendor() {
   const manifest = JSON.parse(readFileSync('vendor/manifest.json', 'utf8'));
+  const paths = [];
+  function pmpFiles(directory) {
+    for (const entry of readdirSync(join('vendor', directory), { withFileTypes: true })) {
+      const path = `${directory}/${entry.name}`;
+      if (entry.isDirectory()) pmpFiles(path);
+      else { assert(entry.isFile(), 'Vendor tree must contain regular files'); paths.push(path); }
+    }
+  }
+  pmpFiles('pmp');
+  assert.deepEqual(paths.sort(), [...manifest.pmp.map(file => file.path), 'pmp/LICENSE.txt'].sort(), 'Unexpected PMP source files');
+  assert.equal(digest(readFileSync('vendor/pmp/LICENSE.txt')), manifest.pmpLicense, 'Changed PMP license');
   for (const file of manifest.pmp)
     assert.equal(digest(readFileSync(join('vendor', file.path))), file.adapted, `Changed vendor/${file.path}`);
   const files = [];

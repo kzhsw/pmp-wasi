@@ -9,9 +9,21 @@ import { audit, auditLinkMap, binaryenFlags, stripTargetFeatures, targetFeatures
 import { verifyVendor } from './vendor.mjs';
 
 const root = resolve(import.meta.dirname, '..');
+const sources = ['src/core.cpp', 'src/algorithms.cpp', 'src/inspection.cpp', 'src/triangulation.cpp', 'src/runtime.cpp', 'vendor/pmp/surface_mesh.cpp',
+  ...['normals', 'features', 'decimation', 'subdivision', 'distance_point_triangle',
+    'remeshing', 'curvature', 'smoothing', 'laplace', 'numerics', 'differential_geometry',
+    'fairing', 'hole_filling', 'triangulation', 'utilities'].map(name => `vendor/pmp/algorithms/${name}.cpp`)];
+const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+export function buildInputHashes() {
+  return Object.fromEntries([...sources.filter(path => path.startsWith('src/')), 'src/mesh.hpp',
+    'include/pmp.h', 'vendor/manifest.json', 'vendor/pmp.patch', 'exports/core.json', 'wasm-exports.json',
+    'scripts/build.mjs', 'scripts/vendor.mjs', 'scripts/wasm.mjs'].sort()
+    .map(path => [path, digest(readFileSync(join(root, path)))]));
+}
 export function build(options = {}) {
   process.chdir(root);
   verifyVendor();
+  const inputHashes = buildInputHashes();
   const directory = options.directory ?? (options.profile ? 'build/memory' : 'build');
   assert(!options.profile || resolve(directory) !== resolve(root, 'build'),
     'Diagnostic builds must not overwrite the production build directory');
@@ -38,8 +50,13 @@ export function build(options = {}) {
   };
   const toolchain = { compiler: capture(cxx, ['--version']).split('\n')[0],
     target: capture(cxx, ['-print-target-triple']),
-    binaryen: capture(join(binaryen, 'bin/wasm-opt'), ['--version']) };
+    binaryen: capture(join(binaryen, 'bin/wasm-opt'), ['--version']),
+    sdkVersion: readFileSync(join(sdk, 'VERSION'), 'utf8').trim() };
   assert(/^wasm32-.*wasi/.test(toolchain.target), 'Compiler must target wasm32 WASI');
+  const runtimeArchives = Object.fromEntries(['libc++.a', 'libc++abi.a', 'libc.a', 'builtins'].map(name => {
+    const path = capture(cxx, name === 'builtins' ? ['-flto', '--print-libgcc-file-name'] : ['-flto', `--print-file-name=${name}`]);
+    return [name, digest(readFileSync(path))];
+  }));
   const run = (exe, args) => {
     const result = spawnSync(exe, args, { stdio: 'inherit' });
     if (result.error) throw result.error;
@@ -58,10 +75,6 @@ export function build(options = {}) {
   const abiVersion = Number(header.match(/^#define PMP_ABI_VERSION (\d+)u$/m)[1]);
   run(cxx, ['-mcpu=mvp', '-x', 'c', '-std=c11', '-Wall', '-Wextra', '-Werror',
     '-fsyntax-only', 'include/pmp.h']);
-  const sources = ['src/core.cpp', 'src/algorithms.cpp', 'src/inspection.cpp', 'src/triangulation.cpp', 'src/runtime.cpp', 'vendor/pmp/surface_mesh.cpp',
-    ...['normals', 'features', 'decimation', 'subdivision', 'distance_point_triangle',
-      'remeshing', 'curvature', 'smoothing', 'laplace', 'numerics', 'differential_geometry',
-      'fairing', 'hole_filling', 'triangulation', 'utilities'].map(name => `vendor/pmp/algorithms/${name}.cpp`)];
   mkdirSync(directory, { recursive: true });
   const targetFlags = ['-mcpu=mvp', '-mbulk-memory-opt', '-mnontrapping-fptoint', '-msign-ext'];
   const flags = [...targetFlags, '-std=c++20', compileOpt, '-flto', '-ffreestanding', '-fno-exceptions', '-fno-rtti',
@@ -82,22 +95,23 @@ export function build(options = {}) {
   }
   // Object reuse is restricted to identical sources, headers and compiler flags.
   // All vendored inputs are verified above; their manifest includes Eigen's hash.
-  const signature = createHash('sha256').update(JSON.stringify({ flags, sources, toolchain }));
+  const signature = createHash('sha256').update(JSON.stringify({ flags, sources, toolchain, runtimeArchives }));
   for (const path of [...sources.filter(path => path.startsWith('src/')), 'src/mesh.hpp',
     'include/pmp.h', 'vendor/manifest.json']) signature.update(path).update(readFileSync(path));
   const objectSignature = signature.digest('hex');
   const objectDirectory = options.objectDirectory ?? directory;
-  if (options.objectDirectory)
-    assert.equal(JSON.parse(readFileSync(join(objectDirectory, 'objects.json'))).signature,
-      objectSignature, 'Cannot reuse stale objects or objects built with different flags');
+  const cached = options.objectDirectory ? JSON.parse(readFileSync(join(objectDirectory, 'objects.json'))) : null;
+  if (cached) assert.equal(cached.signature, objectSignature, 'Cannot reuse stale objects or objects built with different flags');
   const objects = sources.map((source, i) => {
     const object = join(objectDirectory, `${i}.o`);
     if (!options.objectDirectory)
       run(cxx, [...flags, '-MMD', '-MF', file(`${i}.d`), '-c', source, '-o', object]);
+    else assert.equal(digest(readFileSync(object)), cached.sha256[i], `Changed cached object ${object}`);
     return object;
   });
   if (!options.objectDirectory)
-    writeFileSync(file('objects.json'), JSON.stringify({ signature: objectSignature, sources, flags }));
+    writeFileSync(file('objects.json'), JSON.stringify({ signature: objectSignature, sources, flags,
+      sha256: objects.map(object => digest(readFileSync(object))) }));
   // Diagnostic-only allocator interception. Production objects and ABI stay
   // identical; compile the hooks separately so cached LTO objects remain usable.
   const wrappers = options.profile ? ['malloc', 'calloc', 'realloc', 'free',
@@ -134,8 +148,10 @@ export function build(options = {}) {
   assert.equal(instance.exports.pmp_abi_version(), abiVersion);
   const mesh = instance.exports.pmp_mesh_create();
   instance.exports.pmp_mesh_destroy(mesh);
+  verifyVendor();
+  assert.deepEqual(buildInputHashes(), inputHashes, 'Build inputs changed during compilation');
   copyFileSync(file('core.optimized.wasm'), file('pmp-core.wasm'));
-  const report = { bytes: bytes.length, gzipBytes: gzipSync(bytes).length,
+  const report = { abiVersion, inputHashes, runtimeArchives, bytes: bytes.length, gzipBytes: gzipSync(bytes).length,
     sha256: createHash('sha256').update(bytes).digest('hex'), jsBytes: readFileSync('src/index.js').length,
     features: final.features, linkedFeatures: linked.features, targetFlags,
     exports: allExports.length, imports: [], sources, toolchain, compileOpt, linkOpt, codegenOpt, optimize,

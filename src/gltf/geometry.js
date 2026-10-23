@@ -70,7 +70,7 @@ export function resolvePMP(source) {
   if (!e || !(e.memory instanceof WebAssembly.Memory) || required.some(name => typeof e[name] !== 'function'))
     throw new TypeError('Expected PMP exports, a WebAssembly.Instance, or an object containing instance/exports');
   if (poisoned.has(e.memory)) throw new WebAssembly.RuntimeError('PMP instance is poisoned by an earlier native trap; replace it');
-  if (invoke(e, 'pmp_abi_version') !== 0) throw new TypeError('Unsupported PMP ABI');
+  if (invoke(e, 'pmp_abi_version') !== 1) throw new TypeError('Unsupported PMP ABI');
   return e;
 }
 

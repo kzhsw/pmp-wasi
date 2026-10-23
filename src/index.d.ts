@@ -1,4 +1,4 @@
-/** Development ABI 0. Only the implemented core subset is declared here. */
+/** Stable wasm32 ABI 1. Only implemented functions are declared here. */
 export interface CoreExports {
   memory: WebAssembly.Memory;
   pmp_abi_version(): number;

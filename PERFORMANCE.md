@@ -5,11 +5,11 @@ Binaryen 129, and the Chrome 75 scalar feature target. Sizes are bytes; gzip use
 Node's default gzip settings. There are 52 exports including memory, with no
 imports, start section, WASI initialization, IO or threading.
 
-The selected build is **334,638 bytes raw / 125,248 gzip**, with a **4,663-byte JS
+The selected build is **334,638 bytes raw / 125,248 gzip**, with a **4,655-byte JS
 wrapper**. It retains Clang `-O3`, full LTO and Binaryen `-O3`, uses heap-backed
 Eigen dynamic scratch, and relies on the SDK's existing 16-byte malloc alignment.
 The stack is 16 KiB and initial memory is one 64 KiB page. Compared with the
-previous five-family release, the expanded build adds 7,545 raw / 5,192 gzip
+previous five-family build, the expanded build adds 7,545 raw / 5,192 gzip
 bytes, including the solver stack fix.
 
 ## Cost of the additional algorithms
@@ -33,7 +33,7 @@ all previous exports and use the selected O3 and memory configuration throughout
 | All additions together | 25,352 | 10,561 |
 
 The current-source baseline with only the previous 38 exports is 309,286 /
-114,686 bytes. Its reduction from the previous release includes the selected
+114,686 bytes. Its reduction from the previous build includes the selected
 memory configuration and shared binding changes. Group deltas are not additive: LTO and gzip
 share code and data. Compiling a source file does not make every function in it
 live; exporting curvature modes retains code previously removed from the build.
@@ -43,7 +43,7 @@ The reproducible raw data is `build/size/report.json`.
 
 The final selected implementation passed:
 
-- 70 Node tests, including public header/export/runtime ABI agreement.
+- 122 Node tests, including public header/export/runtime ABI agreement.
 - 258 identical Node/Chromium workflows, with 870,628 assertions per load mode.
   Each mode includes 64 deterministic JS/Wasm fuzz seeds.
 - 97 unchanged tests from PMP's own suite against original C++ and another 97
@@ -234,8 +234,8 @@ the earlier profile; peak live payload capacity remains 20,375,960 bytes.
 ## Optional glTF-Transform adapter
 
 The adapter adds **zero Wasm bytes or exports**: production remains 334,638 raw /
-125,248 gzip bytes, with the unchanged 4,663-byte core wrapper. The separate
-adapter is **46,684 bytes minified / 15,960 gzip**, bundled as ESM for Chrome 93
+125,248 gzip bytes, with the 4,655-byte core wrapper. The separate
+adapter is **46,774 bytes minified / 15,979 gzip**, bundled as ESM for Chrome 93
 with esbuild 0.27.7. This includes the document adapter, topology bridge, BVH and
 attribute transfer. It does not import glTF-Transform merely for enum constants;
 the caller already provides its Document. SDK/IO code and the Wasm binary are
@@ -254,12 +254,12 @@ the diagnostic build supplies allocation accounting and must match its output.
 
 | Representative operation | Median milliseconds | Peak native usable bytes | Retained native capacity |
 | --- | ---: | ---: | ---: |
-| Decimation, ratio 0.65 | 42.5 | 369,204 | 458,752 |
-| Uniform remeshing, one iteration | 116.7 | 739,540 | 851,968 |
-| Loop subdivision, one level | 147.8 | 801,720 | 917,504 |
-| Implicit smoothing | 36.4 | 873,048 | 983,040 |
-| Minimum-curvature fairing | 36.8 | 1,598,540 | 1,900,544 |
-| Fill one triangular hole | 3.6 | 1,808 | 65,536 |
+| Decimation, ratio 0.65 | 45.7 | 369,204 | 458,752 |
+| Uniform remeshing, one iteration | 80.7 | 739,540 | 851,968 |
+| Loop subdivision, one level | 111.9 | 801,720 | 917,504 |
+| Implicit smoothing | 21.5 | 873,048 | 983,040 |
+| Minimum-curvature fairing | 24.4 | 1,598,540 | 1,900,544 |
+| Fill one triangular hole | 1.7 | 1,808 | 65,536 |
 
 These are Node 24.16.0 observations, not portable latency guarantees or isolated
 PMP timings. Host load and JS warmup vary substantially between runs. Exact row
@@ -271,17 +271,22 @@ use the BVH and categorical joint merging.
 All eleven profile workloads complete eight production lifetimes each; their
 diagnostic runs return live native bytes and blocks to zero. Native backing
 capacity plateaus after warmup. With explicit GC, whole-process retained JS heap
-ranges from 7.3–8.2 MB, ArrayBuffer accounting from 0.85–3.3 MB, and external
-accounting from 3.4–10.3 MB in this run. These overlapping process-wide counters
+ranges from 7.5–8.3 MB, ArrayBuffer accounting of 0.85 MB, and external
+accounting from 3.4–7.2 MB in this run. These overlapping process-wide counters
 include runtime/test artifacts, are not per-operation peaks and must not be
 added together. The adapter unit suite also checks repeated graph edits release
 orphan accessors and preserve shared targets.
 
-Integration validation covers 51 scenarios (43 synthetic and eight cases across
-five local GLB assets), plus 256 bounded deterministic fuzz seeds. Each Node
-bytes/module and Chromium bytes/streaming mode passes 708,979 assertions with
-matching deterministic summaries. Real cases include skinning/animation, eight
-morph targets, dual UVs, colors and interleaving. Synthetic cases also cover
-shared accessor and morph-target storage.
-The combined unit suite has 120 passing tests. Asset paths and bytes stay out
-of the repository; the optional runner accepts a private local model manifest.
+Integration validation passes 44 synthetic scenarios and 256 deterministic fuzz
+seeds, with 362,193 assertions in each Node and Chromium load mode. Scenes cover
+skinning, animation, morph
+targets, multiple UV sets, normalized colors, custom channels, winding, shared
+storage, malformed input and atomic failure cases. Optional caller-supplied
+models and their local reports are excluded from public source and packages.
+The combined unit suite has 122 passing tests. Installed-tarball checks also
+exercise a peer-free core and all five adapter families in Node and Chromium.
+
+The ABI 1 release candidate has the same 356 function bodies as the validated
+ABI 0 build except for the return constant in `pmp_abi_version`; algorithm code
+and raw/gzip sizes are unchanged. The core wrapper shrank by eight bytes when
+its mismatch message changed. No compatibility code was added.

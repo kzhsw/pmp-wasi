@@ -1,0 +1,116 @@
+{
+  "sdkVersion": "32.0\nwasi-libc: 2fc32bc81b9f\nllvm: 4434dabb6991\nllvm-version: 22.1.0\nconfig: f992bcc08219",
+  "revisions": {
+    "wasi-libc": "2fc32bc81b9f07f8d9525edea59bfbaf760c06d6",
+    "llvm-project": "4434dabb69916856b824f68a64b029c67175e532"
+  },
+  "runtimeArchives": {
+    "libc++.a": "5132ffde15293f97cd941dcca642eda84706e72f2b0c33e9d8db805bf94ad12a",
+    "libc++abi.a": "fbb450f52d213c06199a4bb91e421b86b7246254dccf64cb5e06b0b31355cc17",
+    "libc.a": "49cf5d6218ecdb54bc543fb610e2115088126750ac1b3c34c219d92435254008",
+    "builtins": "b1e23c0376609e09052ff225f290d971b0f8eabd3ffd0737e5d0ebb10f1880d1"
+  },
+  "files": [
+    {
+      "url": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/2fc32bc81b9f07f8d9525edea59bfbaf760c06d6/LICENSE",
+      "sha256": "2711a8b5a5cdfef0e639f96c1aca12ae23d7d64a02d0507f1bdf14d2b27bbc3a",
+      "kind": "complete upstream file",
+      "path": "wasi-libc-LICENSE"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/2fc32bc81b9f07f8d9525edea59bfbaf760c06d6/LICENSE-APACHE",
+      "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+      "kind": "complete upstream file",
+      "path": "wasi-libc-LICENSE-APACHE"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/2fc32bc81b9f07f8d9525edea59bfbaf760c06d6/LICENSE-APACHE-LLVM",
+      "sha256": "268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5",
+      "kind": "complete upstream file",
+      "path": "wasi-libc-LICENSE-APACHE-LLVM"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/2fc32bc81b9f07f8d9525edea59bfbaf760c06d6/LICENSE-MIT",
+      "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+      "kind": "complete upstream file",
+      "path": "wasi-libc-LICENSE-MIT"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/2fc32bc81b9f07f8d9525edea59bfbaf760c06d6/libc-top-half/musl/COPYRIGHT",
+      "sha256": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af",
+      "kind": "complete upstream file",
+      "path": "musl-COPYRIGHT"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/2fc32bc81b9f07f8d9525edea59bfbaf760c06d6/libc-bottom-half/cloudlibc/LICENSE",
+      "sha256": "c8b789cf5a746611e6300a0cc7750dbf92b61912a709d04e639245f7290656d0",
+      "kind": "complete upstream file",
+      "path": "cloudlibc-LICENSE"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/WebAssembly/wasi-libc/2fc32bc81b9f07f8d9525edea59bfbaf760c06d6/dlmalloc/src/malloc.c",
+      "sha256": "c9c0f4879df94f00413079bdd2d4730a292d6dd0e0886dc0cedc6559d3a36e35",
+      "kind": "verbatim source excerpt",
+      "path": "dlmalloc-NOTICE.txt"
+    },
+    {
+      "url": "https://creativecommons.org/publicdomain/zero/1.0/legalcode.txt",
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+      "kind": "complete official version 1.0 legal code; linked by upstream dlmalloc notice",
+      "path": "CC0-1.0.txt"
+    },
+    {
+      "url": "https://github.com/WebAssembly/wasi-libc/tree/2fc32bc81b9f07f8d9525edea59bfbaf760c06d6",
+      "sha256": "41481c364bd43505d61954cc0bcaad3b2465d01b7b049339633c6d98a3dd2ff7",
+      "kind": "verbatim source comment blocks with source path/range labels",
+      "path": "wasi-libc-source-NOTICES.txt"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/llvm/llvm-project/4434dabb69916856b824f68a64b029c67175e532/libcxx/LICENSE.TXT",
+      "sha256": "539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b",
+      "kind": "complete upstream file",
+      "path": "llvm-libcxx-LICENSE.TXT"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/llvm/llvm-project/4434dabb69916856b824f68a64b029c67175e532/libcxx/CREDITS.TXT",
+      "sha256": "054e099bf5954c8821b880f5751d2fbf221bf43cf7c57ac1c2c5ff6263d6d9c3",
+      "kind": "complete upstream file",
+      "path": "llvm-libcxx-CREDITS.TXT"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/llvm/llvm-project/4434dabb69916856b824f68a64b029c67175e532/libcxxabi/LICENSE.TXT",
+      "sha256": "e2b35be49f7284a45b7baca8fc7b3ab7440e7902392b2528a457816b5bb2a15c",
+      "kind": "complete upstream file",
+      "path": "llvm-libcxxabi-LICENSE.TXT"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/llvm/llvm-project/4434dabb69916856b824f68a64b029c67175e532/libcxxabi/CREDITS.TXT",
+      "sha256": "a259fff28a51623f14917dd68f97f3af7804984087ddc1bfd8196d08ebb75b83",
+      "kind": "complete upstream file",
+      "path": "llvm-libcxxabi-CREDITS.TXT"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/llvm/llvm-project/4434dabb69916856b824f68a64b029c67175e532/compiler-rt/LICENSE.TXT",
+      "sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d",
+      "kind": "complete upstream file",
+      "path": "llvm-compiler-rt-LICENSE.TXT"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/llvm/llvm-project/4434dabb69916856b824f68a64b029c67175e532/compiler-rt/CREDITS.TXT",
+      "sha256": "a9901f47a089da41e4690682d00ce4cedaa2baf41fedbe79beee366d43ac2461",
+      "kind": "complete upstream file",
+      "path": "llvm-compiler-rt-CREDITS.TXT"
+    },
+    {
+      "url": "https://github.com/llvm/llvm-project/tree/4434dabb69916856b824f68a64b029c67175e532",
+      "sha256": "56a6df9966b69c0a8594dc0761cc174976a73d698996a2651f679b34a5c6a72b",
+      "kind": "verbatim source comment blocks with source path/range labels",
+      "path": "llvm-runtime-source-NOTICES.txt"
+    },
+    {
+      "kind": "project provenance index",
+      "sha256": "66e10ab4d50d0b82b1c0b3e9372b503f6d4b31dfe0894b50735f403544dcf3f8",
+      "path": "README.md"
+    }
+  ]
+}

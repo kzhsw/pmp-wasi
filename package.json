@@ -19,28 +19,33 @@
     "profile:memory": "node scripts/memory.mjs",
     "test:gltf": "node scripts/gltf-e2e.mjs",
     "test:gltf:node": "node scripts/gltf-e2e.mjs --node-only",
-    "profile:gltf": "node --expose-gc scripts/gltf-profile.mjs"
+    "profile:gltf": "node --expose-gc scripts/gltf-profile.mjs",
+    "prepack": "node scripts/package.mjs",
+    "package": "node scripts/package.mjs --pack",
+    "test:package": "node scripts/package-e2e.mjs"
   },
   "engines": {
     "node": ">=22"
   },
   "files": [
     "include/pmp.h",
-    "DESIGN.md",
+    "API.md",
     "COMPATIBILITY.md",
-    "upstream.json",
-    "wasm-exports.json",
-    "exports/core.json",
-    "THIRD_PARTY_NOTICES.md",
-    "design/pmp-proposed.h",
     "PERFORMANCE.md",
+    "GLTF_TRANSFORM.md",
+    "CHANGELOG.md",
+    "THIRD_PARTY_NOTICES.md",
+    "dist/pmp.wasm",
+    "dist/build.json",
+    "dist/licenses/",
+    "licenses/runtime/",
     "src/index.js",
     "src/index.d.ts",
     "src/gltf-transform.js",
     "src/gltf-transform.d.ts",
-    "src/gltf/*.js",
-    "GLTF_TRANSFORM.md",
-    "design/gltf-transform.md"
+    "src/gltf/geometry.js",
+    "src/gltf/attributes.js",
+    "src/gltf/transfer.js"
   ],
   "keywords": [
     "pmp",
@@ -61,7 +66,9 @@
     "./gltf-transform": {
       "types": "./src/gltf-transform.d.ts",
       "import": "./src/gltf-transform.js"
-    }
+    },
+    "./pmp.wasm": "./dist/pmp.wasm",
+    "./include/pmp.h": "./include/pmp.h"
   },
   "peerDependencies": {
     "@gltf-transform/core": "^4.5.1"
@@ -70,5 +77,14 @@
     "@gltf-transform/core": {
       "optional": true
     }
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kzhsw/pmp-wasi.git"
+  },
+  "homepage": "https://github.com/kzhsw/pmp-wasi#readme",
+  "bugs": {
+    "url": "https://github.com/kzhsw/pmp-wasi/issues"
+  },
+  "sideEffects": false
 }

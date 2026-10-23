@@ -135,17 +135,28 @@ test('public C header declares exactly the implemented API and matching runtime 
   assert.equal((await instantiate(module)).pmp_abi_version(), version);
 });
 
-test('core binary has exactly the development exports and no host or initialization hooks', async () => {
+test('core binary has exactly the implemented exports and no host or initialization hooks', async () => {
   const info = audit(wasm, exportNames);
   assert.equal(exportNames.length, 52);
   assert.deepEqual(WebAssembly.Module.imports(info.module), []);
   assert.equal(info.start, false);
   assert(![...info.exports.keys()].some(name => /init|ctor|dtor|start|wasi/i.test(name)));
   const e = await instantiate(wasm);
-  assert.equal(e.pmp_abi_version(), 0);
+  assert.equal(e.pmp_abi_version(), 1);
   assert(e.memory instanceof WebAssembly.Memory);
   assert.equal(e.memory.buffer.byteLength, 65536, 'production starts with one Wasm page');
   assert(!(e.memory.buffer instanceof SharedArrayBuffer));
+});
+
+test('the wrapper rejects other ABIs without compatibility fallbacks', async () => {
+  const name = new TextEncoder().encode('pmp_abi_version');
+  for (const version of [0, 2]) {
+    const bytes = Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0,
+      1, 5, 1, 0x60, 0, 1, 0x7f, 3, 2, 1, 0,
+      7, 4 + name.length, 1, name.length, ...name, 0, 0,
+      10, 6, 1, 4, 0, 0x41, version, 0x0b]);
+    await assert.rejects(instantiate(bytes), /Unsupported PMP ABI/);
+  }
 });
 
 test('allocator returns independent, aligned buffers and accepts zero-sized ownership', async () => {

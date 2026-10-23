@@ -1,7 +1,7 @@
 import type { Document, Mesh, Primitive, Transform } from '@gltf-transform/core';
 import type { CoreExports } from './index.js';
 
-/** A caller-owned, healthy ABI 0 instance. Discard it after any Wasm trap. */
+/** A caller-owned, healthy ABI 1 instance. Discard it after any Wasm trap. */
 export type PMPSource = CoreExports | WebAssembly.Instance |
   { instance: WebAssembly.Instance } | { exports: CoreExports };
 export type Operation = 'decimate' | 'remesh' | 'subdivide' | 'smooth' | 'fillHoles' | 'fair' | 'normals' | 'analyze';

@@ -360,7 +360,7 @@ int main(int argc, char** argv)
     char *end_seed, *end_count;
     const unsigned long long first = strtoull(argv[1], &end_seed, 10), count = strtoull(argv[2], &end_count, 10);
     if (*end_seed || *end_count || first > UINT32_MAX || count < 1 || count > 256) return 2;
-    CHECK(pmp_abi_version() == 0);
+    CHECK(pmp_abi_version() == PMP_ABI_VERSION);
     for (uint32_t i = 0; i < count; ++i) run_seed((uint32_t)(first + i));
     printf("{\"seed\":%llu,\"seeds\":%llu,\"assertions\":%" PRIu64 "}\n", first, count, assertions);
     return 0;

@@ -90,7 +90,7 @@ try {
     const asanRuntime = run(cxx, ['-print-file-name=libasan.so']).stdout.trim();
     assert(existsSync(asanRuntime), 'GCC AddressSanitizer runtime is unavailable');
     const environment = { ...process.env,
-      // Keep ASan first even when the host has entries in /etc/ld.so.preload.
+      // Keep ASan first even when the host has system-wide preloads.
       LD_PRELOAD: asanRuntime + (process.env.LD_PRELOAD ? `:${process.env.LD_PRELOAD}` : ''),
       ASAN_OPTIONS: process.env.ASAN_OPTIONS ?? 'detect_leaks=1:halt_on_error=1:abort_on_error=1',
       UBSAN_OPTIONS: process.env.UBSAN_OPTIONS ?? 'halt_on_error=1:print_stacktrace=1' };
