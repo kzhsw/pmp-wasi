@@ -71,7 +71,7 @@ The wrapper uses ESM, ES2017 syntax (including async/Promises), typed arrays,
 [55](https://chromestatus.com/feature/5643236399906816), and `encodeInto` in
 [74](https://chromestatus.com/feature/5546544912662528). Optional chaining was
 removed because it needs [Chrome 80](https://v8.dev/features/optional-chaining).
-The browser test modules also avoid optional chaining, nullish coalescing and
+The core browser test modules also avoid optional chaining, nullish coalescing and
 `Array.prototype.at`, so they do not impose those newer requirements.
 
 The wrapper accepts bytes or a compiled `WebAssembly.Module`. It uses no DOM,
@@ -142,3 +142,25 @@ support. The default feature audit deliberately continues to reject SIMD. To
 compare separately built artifacts, run `npm run bench -- path/to/a.wasm
 path/to/b.wasm`; measurements are workload/engine dependent, not performance
 thresholds or a claim of globally optimal speed or size.
+
+## Optional glTF-Transform adapter
+
+The separate `pmp-wasi/gltf-transform` entry point targets Chrome 93 or later
+without polyfills, with ESM resolution supplied by a bundler or import map. It
+uses modern JS syntax and the optional peer `@gltf-transform/core` 4.x, tested
+with 4.5.1 and `property-graph` 4.1.0. That dependency calls `Object.hasOwn`,
+introduced in [V8 9.3 / Chrome 93](https://v8.dev/blog/v8-release-93#object.hasown).
+Browser tests bundle for `chrome93` using an existing esbuild installation.
+This is a feature baseline, not an execution certification on Chrome 93; the
+executed runtimes remain Node 24.16.0 and Chromium 151.0.7922.34. Repository
+scripts require Node 22 or later.
+
+The adapter's dependency and syntax requirements do not change the core wrapper
+or Wasm Chrome 75 baseline. The same scalar Wasm bytes, 52 exports, zero imports,
+16 KiB stack and one initial 64 KiB page serve both entry points. No glTF, file,
+network or browser APIs are added to Wasm. The caller performs IO through NodeIO
+or WebIO; the adapter itself processes an existing Document. It necessarily
+copies accessor data across JS/Wasm memory and uses a JS BVH for approximate
+attribute transfer. See [GLTF_TRANSFORM.md](GLTF_TRANSFORM.md) for ownership and
+compatibility limits. Core/extensions are development dependencies; only core
+is an optional runtime peer of the separate adapter.

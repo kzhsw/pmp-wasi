@@ -16,7 +16,10 @@
     "test:upstream": "node scripts/upstream-tests.mjs",
     "test:fuzz": "node scripts/fuzz.mjs",
     "tune": "node scripts/tune.mjs",
-    "profile:memory": "node scripts/memory.mjs"
+    "profile:memory": "node scripts/memory.mjs",
+    "test:gltf": "node scripts/gltf-e2e.mjs",
+    "test:gltf:node": "node scripts/gltf-e2e.mjs --node-only",
+    "profile:gltf": "node --expose-gc scripts/gltf-profile.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -30,7 +33,14 @@
     "exports/core.json",
     "THIRD_PARTY_NOTICES.md",
     "design/pmp-proposed.h",
-    "PERFORMANCE.md"
+    "PERFORMANCE.md",
+    "src/index.js",
+    "src/index.d.ts",
+    "src/gltf-transform.js",
+    "src/gltf-transform.d.ts",
+    "src/gltf/*.js",
+    "GLTF_TRANSFORM.md",
+    "design/gltf-transform.md"
   ],
   "keywords": [
     "pmp",
@@ -38,5 +48,27 @@
     "wasm",
     "wasi-sdk",
     "geometry"
-  ]
+  ],
+  "devDependencies": {
+    "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/extensions": "4.5.1"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./gltf-transform": {
+      "types": "./src/gltf-transform.d.ts",
+      "import": "./src/gltf-transform.js"
+    }
+  },
+  "peerDependencies": {
+    "@gltf-transform/core": "^4.5.1"
+  },
+  "peerDependenciesMeta": {
+    "@gltf-transform/core": {
+      "optional": true
+    }
+  }
 }

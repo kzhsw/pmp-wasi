@@ -30,14 +30,15 @@ before mutation. See the [attribute contract](DESIGN.md#additional-attributes-an
 
 [exports/core.json](exports/core.json) is the exact implemented export list
 (ABI 0). The [C header](include/pmp.h) declares exactly that implemented API and
-version. Unimplemented declarations live in [design/pmp-proposed.h](design/pmp-proposed.h). This private, dependency-free project targets a future
-public npm release; the current npm payload contains design metadata, without a
-runtime entry point, while the remaining ABI and runtime notices are completed.
+version. Unimplemented declarations live in [design/pmp-proposed.h](design/pmp-proposed.h). The core has no runtime dependencies. This private project targets a future
+public npm release; development JS entry points are available, while the Wasm
+artifact remains a local build and runtime distribution notices are completed.
 
 Build with existing WASI SDK and Binaryen installations. Set `WASI_SDK_PATH`
 and `BINARYEN_PATH` to their directories, then run:
 
 ```sh
+npm ci --ignore-scripts
 npm run build
 npm test
 npm run test:e2e
@@ -86,3 +87,17 @@ UndefinedBehaviorSanitizer. Both use existing local compilers and dependencies.
 checks allocation peaks, reservation choices and repeated mesh lifetimes.
 [PERFORMANCE.md](PERFORMANCE.md) records size, compiler/linker/Binaryen tuning,
 memory measurements and the selected allocator configuration.
+
+The optional [glTF-Transform adapter](GLTF_TRANSFORM.md) is available through
+`pmp-wasi/gltf-transform`. It provides all five mesh-processing families plus
+fairing, normals and measurements, with document/mesh/primitive selection,
+attribute and morph transfer, and multi-set skinning. It accepts caller-owned
+PMP exports or instances. `@gltf-transform/core` is an optional peer and test
+dependency; importing the core does not load it. Adapter copies and approximate
+transfer policies are separate from the core's zero-copy contract.
+
+Run `npm run test:gltf:node` for its NodeIO tests, or `npm run test:gltf` with
+`ESBUILD_MODULE` pointing to an existing esbuild installation plus the browser
+settings above. The latter compares NodeIO and WebIO GLB roundtrips, synthetic
+models, seeded fuzz cases and optional local GLB fixtures. No browser, compiler
+or bundler is downloaded by these scripts.

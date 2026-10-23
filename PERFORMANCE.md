@@ -230,3 +230,58 @@ The rebuilt diagnostic profile passes all 280 lifecycles (4,538 assertions),
 returns tracked live bytes to zero, and reaches the same allocation plateau.
 Its largest solver retains 21,889,024 linear-memory bytes, one page less than
 the earlier profile; peak live payload capacity remains 20,375,960 bytes.
+
+## Optional glTF-Transform adapter
+
+The adapter adds **zero Wasm bytes or exports**: production remains 334,638 raw /
+125,248 gzip bytes, with the unchanged 4,663-byte core wrapper. The separate
+adapter is **46,684 bytes minified / 15,960 gzip**, bundled as ESM for Chrome 93
+with esbuild 0.27.7. This includes the document adapter, topology bridge, BVH and
+attribute transfer. It does not import glTF-Transform merely for enum constants;
+the caller already provides its Document. SDK/IO code and the Wasm binary are
+excluded from this adapter-only measurement.
+
+`npm run profile:gltf` uses an existing esbuild installation selected by
+`ESBUILD_MODULE`, the production binary, and the separately built memory
+diagnostic binary. It writes source/artifact fingerprints and raw cycles to
+`build/gltf/profile.json`. The default profile uses a 32×32-cell surface
+(1,089 vertices /2,048 triangles), dual UVs, normalized colors, custom channels,
+two skin influence sets and an animated morph target. Hole filling uses a
+missing tetrahedron face. Document creation is outside the timed interval; all
+adapter validation, copies, native processing, attribute/morph transfer and
+graph commit are inside. Eight cycles include two warmups. Production is timed;
+the diagnostic build supplies allocation accounting and must match its output.
+
+| Representative operation | Median milliseconds | Peak native usable bytes | Retained native capacity |
+| --- | ---: | ---: | ---: |
+| Decimation, ratio 0.65 | 42.5 | 369,204 | 458,752 |
+| Uniform remeshing, one iteration | 116.7 | 739,540 | 851,968 |
+| Loop subdivision, one level | 147.8 | 801,720 | 917,504 |
+| Implicit smoothing | 36.4 | 873,048 | 983,040 |
+| Minimum-curvature fairing | 36.8 | 1,598,540 | 1,900,544 |
+| Fill one triangular hole | 3.6 | 1,808 | 65,536 |
+
+These are Node 24.16.0 observations, not portable latency guarantees or isolated
+PMP timings. Host load and JS warmup vary substantially between runs. Exact row
+paths validate source IDs once and copy rows directly; unchanged row order uses
+one typed-array copy per channel. This avoids allocating/revalidating a
+three-corner interpolation map for each retained channel. Projected paths still
+use the BVH and categorical joint merging.
+
+All eleven profile workloads complete eight production lifetimes each; their
+diagnostic runs return live native bytes and blocks to zero. Native backing
+capacity plateaus after warmup. With explicit GC, whole-process retained JS heap
+ranges from 7.3–8.2 MB, ArrayBuffer accounting from 0.85–3.3 MB, and external
+accounting from 3.4–10.3 MB in this run. These overlapping process-wide counters
+include runtime/test artifacts, are not per-operation peaks and must not be
+added together. The adapter unit suite also checks repeated graph edits release
+orphan accessors and preserve shared targets.
+
+Integration validation covers 51 scenarios (43 synthetic and eight cases across
+five local GLB assets), plus 256 bounded deterministic fuzz seeds. Each Node
+bytes/module and Chromium bytes/streaming mode passes 708,979 assertions with
+matching deterministic summaries. Real cases include skinning/animation, eight
+morph targets, dual UVs, colors and interleaving. Synthetic cases also cover
+shared accessor and morph-target storage.
+The combined unit suite has 120 passing tests. Asset paths and bytes stay out
+of the repository; the optional runner accepts a private local model manifest.
