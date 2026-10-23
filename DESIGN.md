@@ -500,8 +500,7 @@ Optional view helpers construct typed arrays over current memory and check the
 ABI version. They do not wrap every algorithm or copy mesh arrays. Bulk vertex
 and face construction are the only planned helpers to reduce crossing costs.
 
-The repository has a prepared 0.1.0 candidate. `private: true` remains until
-publication is authorized. The public package contains the implemented JS/Wasm,
+Version 0.1.0 uses ABI 1. The public package contains the implemented JS/Wasm,
 C header, user documentation and complete dependency notices, with an explicit
 Wasm subpath export. Proposed APIs are excluded. See [RELEASING.md](RELEASING.md)
 for staging, input provenance, installed-tarball checks and publication gates.

@@ -1,9 +1,10 @@
 # 0.1.0 release review
 
-The candidate is prepared for local consumption. Nothing has been published;
-`private: true` still guards npm publication. The configured repository is
-https://github.com/kzhsw/pmp-wasi. Follow [RELEASING.md](RELEASING.md) before
-publishing, including rechecking the final tarball if metadata changes.
+The 0.1.0 package metadata is finalized for publication, including npm installation
+instructions and links to the `main` branch at https://github.com/kzhsw/pmp-wasi.
+Push and publication are separate from this review. Follow
+[RELEASING.md](RELEASING.md) before publishing, including rechecking the final
+tarball if metadata changes.
 
 ## Reviewed changes
 
@@ -32,19 +33,26 @@ publishing, including rechecking the final tarball if metadata changes.
 | Wasm gzip | 125,248 bytes |
 | Core JS | 4,655 bytes |
 | Optional adapter, minified / gzip | 46,774 / 15,979 bytes |
-| npm tarball, 43 files | 214,205 bytes |
-| npm unpacked payload | 705,125 bytes |
+| npm tarball, 43 files | 214,088 bytes |
+| npm unpacked payload | 704,879 bytes |
 
 Wasm SHA-256:
 `9fcd942785a90b43f86047a08a5deed449a80031276ffac1eb9134bf76fbe7ad`
 
 Candidate `pmp-wasi-0.1.0.tgz` SHA-256:
-`54be627009fa21cffa0e585072178fb75d80892fc27ad2da7b6c624fab6789fa`
+`1cb85558ae70f6d0aa489435662ae5af675a0975d919d623d03fc46ba04102e4`
 
 The artifact has zero imports, no start/init, no retained IO/printf/thread or
 exception-unwind symbols, 52 exports including memory, a 16 KiB stack and one
 initial 64 KiB page. Of 356 function bodies, only `pmp_abi_version` differs from
 the previously validated scalar ABI 0 artifact. Algorithm code size is unchanged.
+
+Pre-push finalization changed package metadata and documentation only. The
+production Wasm and JS sources are unchanged. All 122 unit tests passed again;
+the final publishable tarball passed the isolated installation and Node/Chromium
+gate, including bytes/module/streaming paths and six adapter workflows. The
+earlier algorithm, fuzz and memory results below apply to the same native and
+JS implementation.
 
 ## Completed gates
 

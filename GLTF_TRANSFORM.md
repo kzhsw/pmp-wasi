@@ -5,7 +5,7 @@ decimation, remeshing, subdivision, smoothing and hole filling, plus fairing,
 normal generation and read-only measurements. It uses the same freestanding
 Wasm module as the core. Only this entry point requires the optional peer
 `@gltf-transform/core` (tested with 4.5.1). The core entry point remains independent
-of glTF-Transform. Version 0.1.0 is prepared for its first release and is not published yet.
+of glTF-Transform.
 
 ```js
 import { instantiate } from 'pmp-wasi';
@@ -166,7 +166,7 @@ more appropriate. Wasm memory can grow but cannot shrink.
 serialization/reloading. `npm run test:gltf` additionally runs the same scenarios
 through browser WebIO and compares results with NodeIO. Set `ESBUILD_MODULE` and
 the existing Playwright/browser environment variables described in the
-[contributor guide](https://github.com/kzhsw/pmp-wasi/blob/master/CONTRIBUTING.md).
+[contributor guide](https://github.com/kzhsw/pmp-wasi/blob/main/CONTRIBUTING.md).
 `--seeds 256 --seed 0` selects a bounded reproducible fuzz run. `--models FILE`
 accepts a private JSON array of `{path, name, primitives?: [[meshIndex,
 primitiveIndex]], options?: {...}}` GLB cases. Inputs are read only; asset paths

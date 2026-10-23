@@ -1,9 +1,9 @@
 # Preparing a release
 
-The first candidate is `pmp-wasi@0.1.0`, ABI 1. The public repository is
-https://github.com/kzhsw/pmp-wasi. Publication has not been authorized or performed;
-`private: true` remains an intentional guard. Preparing and installing a local
-npm tarball does not publish it.
+The first release is `pmp-wasi@0.1.0`, ABI 1. The public repository is
+https://github.com/kzhsw/pmp-wasi, with `main` as the default branch. Package
+metadata is ready for publication. Preparing and installing a local npm tarball
+does not publish it; pushing source and publishing to npm are separate steps.
 
 ## Candidate validation
 
@@ -51,14 +51,18 @@ covered Eigen sources and all source notices, and excludes ignored artifacts.
 
 ## Publication, when authorized
 
-Before publication, make the reviewed source revision available at the configured
-public repository and verify the pinned corresponding-source links in
-`THIRD_PARTY_NOTICES.md`. Update release status text and the changelog, remove
-`private: true`, and repack. Metadata changes create a different tarball, so rerun
-the installed-package gate and record the new hash. Use a version tag and release
-notes tied to that reviewed commit. Publish only the resulting verified artifact.
-The package test accepts either private or publishable metadata; publication
-protection is a repository workflow decision, not a runtime requirement.
+Before publication, check the version, changelog and installation instructions.
+Metadata changes create a different tarball, so repack, rerun the installed-package
+gate and record the new hash. Commit the reviewed source and produce its source
+archive. Make that revision available at the configured public repository and
+verify the pinned corresponding-source links in `THIRD_PARTY_NOTICES.md`.
+
+After the release has been authorized, push the reviewed `main` commit and its
+`v0.1.0` tag, attach the source archive and checksums to the GitHub release, and
+publish the exact tested tarball with `npm publish build/release/pmp-wasi-0.1.0.tgz
+--access public`. Authenticate npm before that step. Verify that the registry's
+integrity matches the tested artifact and that a fresh install resolves version
+0.1.0. Do not repack between the final package gate and publication.
 
 Keep the JS wrapper and Wasm binary paired. ABI 1 freezes the implemented layout
 and signatures; no fallback or cross-version wrapper is shipped. A changed ABI

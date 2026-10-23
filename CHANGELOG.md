@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.1.0 — prepared, unreleased
+## 0.1.0
 
-First release candidate, with matching ABI 1 C header, Wasm exports and JS wrapper.
+Initial release, with matching ABI 1 C header, Wasm exports and JS wrapper.
 
 - Decimation, uniform/adaptive remeshing, four subdivision modes, explicit/implicit
   smoothing and hole filling.

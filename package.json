@@ -1,7 +1,6 @@
 {
   "name": "pmp-wasi",
   "version": "0.1.0",
-  "private": true,
   "description": "Freestanding, single-threaded WebAssembly bindings for PMP algorithms, built with wasi-sdk.",
   "type": "module",
   "license": "MIT",

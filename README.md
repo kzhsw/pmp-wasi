@@ -11,11 +11,10 @@ filesystem, network access or workers. The core JS entry has no dependencies.
 The project is **MIT licensed**, matching PMP; bundled dependencies retain their
 own [licenses and notices](THIRD_PARTY_NOTICES.md).
 
-Version **0.1.0 / ABI 1** is prepared for the first release and is not published
-to npm yet. Install the locally prepared tarball:
+Install **0.1.0 / ABI 1**:
 
 ```sh
-npm install ./pmp-wasi-0.1.0.tgz
+npm install pmp-wasi
 ```
 
 ## Load the module
@@ -142,4 +141,4 @@ SIMD and extended constants are disabled. See [compatibility](COMPATIBILITY.md)
 and [performance measurements](PERFORMANCE.md) for the precise scope.
 
 To build or contribute, see the repository's
-[contributor guide](https://github.com/kzhsw/pmp-wasi/blob/master/CONTRIBUTING.md).
+[contributor guide](https://github.com/kzhsw/pmp-wasi/blob/main/CONTRIBUTING.md).
