@@ -19,6 +19,19 @@ export interface CoreExports {
   pmp_mesh_get_view(mesh: number, output: number): void;
   pmp_mesh_property(mesh: number, domain: number, type: number, name: number, create: number): number;
   pmp_mesh_remove_property(mesh: number, domain: number, name: number): number;
+  /** Domain bitmask of unsupported attached properties; zero is supported. */
+  pmp_mesh_unsupported_properties(mesh: number, algorithm: number): number;
+  pmp_decimate(mesh: number, vertices: number, aspectRatio: number, edgeLength: number,
+    maxValence: number, normalDeviation: number, hausdorffError: number, seamThreshold: number, seamAngleDeviation: number): void;
+  pmp_uniform_remeshing(mesh: number, edgeLength: number, iterations: number, projection: number): void;
+  pmp_adaptive_remeshing(mesh: number, minLength: number, maxLength: number, error: number, iterations: number, projection: number): void;
+  pmp_catmull_clark_subdivision(mesh: number, boundary: number): void;
+  pmp_loop_subdivision(mesh: number, boundary: number): void;
+  pmp_quad_tri_subdivision(mesh: number, boundary: number): void;
+  pmp_linear_subdivision(mesh: number): void;
+  pmp_explicit_smoothing(mesh: number, iterations: number, uniform: number): void;
+  pmp_implicit_smoothing(mesh: number, timestep: number, iterations: number, uniform: number, rescale: number): void;
+  pmp_fill_hole(mesh: number, halfedge: number): void;
   pmp_vertex_normals(mesh: number): void;
   pmp_face_normals(mesh: number): void;
   pmp_vertex_normal(mesh: number, vertex: number, output: number): void;
@@ -33,6 +46,8 @@ export const Property: Readonly<{ BOOL: 0; I32: 1; U32: 2; F32: 3; F64: 4;
   VEC2F: 5; VEC3F: 6; VEC4F: 7; VEC4U32: 8; VEC4U16: 9; RGBA8: 10 }>;
 export const Domain: Readonly<{ VERTEX: 0; HALFEDGE: 1; EDGE: 2; FACE: 3 }>;
 export const Winding: Readonly<{ CCW: 0; CW: 1 }>;
+export const Algorithm: Readonly<{ DECIMATE: 0; UNIFORM_REMESH: 1; ADAPTIVE_REMESH: 2;
+  CATMULL_CLARK: 3; LOOP: 4; QUAD_TRI: 5; LINEAR: 6; EXPLICIT_SMOOTH: 7; IMPLICIT_SMOOTH: 8; FILL_HOLE: 9 }>;
 export interface MeshView {
   vertices: number; edges: number; faces: number;
   liveVertices: number; liveEdges: number; liveFaces: number;

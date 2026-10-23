@@ -37,6 +37,11 @@ enum pmp_property_type {
     PMP_VEC4F = 7, PMP_VEC4U32 = 8, PMP_VEC4U16 = 9, PMP_RGBA8 = 10
 };
 enum pmp_winding { PMP_CCW = 0, PMP_CW = 1 };
+enum pmp_algorithm {
+    PMP_DECIMATE = 0, PMP_UNIFORM_REMESH = 1, PMP_ADAPTIVE_REMESH = 2,
+    PMP_CATMULL_CLARK = 3, PMP_LOOP = 4, PMP_QUAD_TRI = 5, PMP_LINEAR = 6,
+    PMP_EXPLICIT_SMOOTH = 7, PMP_IMPLICIT_SMOOTH = 8, PMP_FILL_HOLE = 9
+};
 
 /* Read-only native connectivity: 16-byte records, no index-buffer conversion. */
 typedef struct {
@@ -113,6 +118,12 @@ void *pmp_mesh_property(pmp_mesh *mesh, uint32_t domain, uint32_t type,
                         const char *name, uint32_t create);
 /* Returns 1 if removed, 0 if absent. Core and scratch names are reserved. */
 uint32_t pmp_mesh_remove_property(pmp_mesh *mesh, uint32_t domain, const char *name);
+/* Allocation-free preflight. Returns a bitmask of domains containing unsupported
+ * attached properties: 1<<PMP_VERTEX, 1<<PMP_HALFEDGE, 1<<PMP_EDGE, 1<<PMP_FACE.
+ * An incomplete/inconsistent feature pair also marks vertex+edge. A zero result
+ * checks property support only, not geometry/numerical preconditions. Algorithms
+ * trap before mutation if this mask is nonzero. See DESIGN.md for transfer rules. */
+uint32_t pmp_mesh_unsupported_properties(const pmp_mesh *mesh, uint32_t algorithm);
 
 pmp_vertex_buffer *pmp_vertex_buffer_create(void);
 void pmp_vertex_buffer_destroy(pmp_vertex_buffer *buffer);

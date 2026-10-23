@@ -25,5 +25,16 @@
   "pmp_corner_normal",
   "pmp_detect_features",
   "pmp_detect_boundary",
-  "pmp_clear_features"
+  "pmp_clear_features",
+  "pmp_mesh_unsupported_properties",
+  "pmp_decimate",
+  "pmp_uniform_remeshing",
+  "pmp_adaptive_remeshing",
+  "pmp_catmull_clark_subdivision",
+  "pmp_loop_subdivision",
+  "pmp_quad_tri_subdivision",
+  "pmp_linear_subdivision",
+  "pmp_explicit_smoothing",
+  "pmp_implicit_smoothing",
+  "pmp_fill_hole"
 ]

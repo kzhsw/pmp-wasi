@@ -98,5 +98,6 @@
   "pmp_edge_length",
   "pmp_mean_edge_length",
   "pmp_min_edge_length",
-  "pmp_connected_components"
+  "pmp_connected_components",
+  "pmp_mesh_unsupported_properties"
 ]

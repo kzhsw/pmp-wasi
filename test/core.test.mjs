@@ -128,7 +128,7 @@ function topology(view, expectedFaces) {
 
 test('core binary has exactly the development exports and no host or initialization hooks', async () => {
   const info = audit(wasm, exportNames);
-  assert.equal(exportNames.length, 27);
+  assert.equal(exportNames.length, 38);
   assert.deepEqual(WebAssembly.Module.imports(info.module), []);
   assert.equal(info.start, false);
   assert(![...info.exports.keys()].some(name => /init|ctor|dtor|start|wasi/i.test(name)));

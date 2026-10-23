@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-#include "pmp.h"
-#include "pmp/surface_mesh.h"
+#include "mesh.hpp"
 #include "pmp/algorithms/normals.h"
 #include "pmp/algorithms/features.h"
 
@@ -11,43 +10,9 @@
 #include <string_view>
 #include <type_traits>
 
-namespace {
-void require(bool condition) { if (!condition) pmp::fail(); }
+using namespace pmp_wasm;
 
-pmp::SurfaceMesh& mesh_of(pmp_mesh* handle)
-{
-    require(handle != nullptr);
-    return *reinterpret_cast<pmp::SurfaceMesh*>(handle);
-}
-const pmp::SurfaceMesh& mesh_of(const pmp_mesh* handle)
-{
-    require(handle != nullptr);
-    return *reinterpret_cast<const pmp::SurfaceMesh*>(handle);
-}
-void compact(const pmp::SurfaceMesh& mesh)
-{
-    require(mesh.n_vertices() == mesh.vertices_size() &&
-            mesh.n_edges() == mesh.edges_size() && mesh.n_faces() == mesh.faces_size());
-}
-pmp::Vertex vertex_of(const pmp::SurfaceMesh& mesh, uint32_t index)
-{
-    require(index < mesh.vertices_size());
-    pmp::Vertex v(index);
-    require(!mesh.is_deleted(v));
-    return v;
-}
-pmp::Face face_of(const pmp::SurfaceMesh& mesh, uint32_t index)
-{
-    require(index < mesh.faces_size());
-    pmp::Face f(index);
-    require(!mesh.is_deleted(f));
-    return f;
-}
-void store(float* out, const pmp::Point& value)
-{
-    require(out != nullptr);
-    for (int i = 0; i != 3; ++i) out[i] = value[i];
-}
+namespace {
 void check_face(const pmp::SurfaceMesh& mesh, const uint32_t* indices, uint32_t count)
 {
     require(count >= 3 && count < UINT32_MAX / 3 && indices != nullptr);
@@ -110,41 +75,28 @@ void* property_data(pmp::PropertyContainer& container, std::string_view name, bo
 } // namespace
 
 namespace pmp {
-// The only access to private mesh storage. Does not expose STL object layouts.
-struct WasmAccess {
-    static PropertyContainer& properties(SurfaceMesh& mesh, uint32_t domain)
-    {
-        switch (domain) {
-        case PMP_VERTEX: return mesh.vprops_;
-        case PMP_HALFEDGE: return mesh.hprops_;
-        case PMP_EDGE: return mesh.eprops_;
-        case PMP_FACE: return mesh.fprops_;
-        default: fail();
-        }
-    }
-    static void view(SurfaceMesh& mesh, pmp_mesh_view& out)
-    {
-        using VC = SurfaceMesh::VertexConnectivity;
-        using HC = SurfaceMesh::HalfedgeConnectivity;
-        using FC = SurfaceMesh::FaceConnectivity;
-        static_assert(sizeof(VC) == 4 && sizeof(HC) == 16 && sizeof(FC) == 4);
-        static_assert(alignof(VC) == 4 && alignof(HC) == 4 && alignof(FC) == 4);
-        static_assert(std::is_standard_layout_v<VC> && std::is_standard_layout_v<HC> &&
-                      std::is_standard_layout_v<FC>);
-        static_assert(std::is_trivially_copyable_v<VC> && std::is_trivially_copyable_v<HC> &&
-                      std::is_trivially_copyable_v<FC>);
-        static_assert(offsetof(VC, halfedge_) == 0 && offsetof(FC, halfedge_) == 0);
-        static_assert(offsetof(HC, face_) == 0 && offsetof(HC, vertex_) == 4 &&
-                      offsetof(HC, next_halfedge_) == 8 && offsetof(HC, prev_halfedge_) == 12);
-        out = {uint32_t(mesh.vertices_size()), uint32_t(mesh.edges_size()), uint32_t(mesh.faces_size()),
-               uint32_t(mesh.n_vertices()), uint32_t(mesh.n_edges()), uint32_t(mesh.n_faces()),
-               mesh.positions().empty() ? nullptr : mesh.positions().front().data(),
-               reinterpret_cast<const uint32_t*>(mesh.vconn_.data()),
-               reinterpret_cast<const pmp_halfedge*>(mesh.hconn_.data()),
-               reinterpret_cast<const uint32_t*>(mesh.fconn_.data()),
-               mesh.vdeleted_.data(), mesh.edeleted_.data(), mesh.fdeleted_.data()};
-    }
-};
+void WasmAccess::view(SurfaceMesh& mesh, pmp_mesh_view& out)
+{
+    using VC = SurfaceMesh::VertexConnectivity;
+    using HC = SurfaceMesh::HalfedgeConnectivity;
+    using FC = SurfaceMesh::FaceConnectivity;
+    static_assert(sizeof(VC) == 4 && sizeof(HC) == 16 && sizeof(FC) == 4);
+    static_assert(alignof(VC) == 4 && alignof(HC) == 4 && alignof(FC) == 4);
+    static_assert(std::is_standard_layout_v<VC> && std::is_standard_layout_v<HC> &&
+                  std::is_standard_layout_v<FC>);
+    static_assert(std::is_trivially_copyable_v<VC> && std::is_trivially_copyable_v<HC> &&
+                  std::is_trivially_copyable_v<FC>);
+    static_assert(offsetof(VC, halfedge_) == 0 && offsetof(FC, halfedge_) == 0);
+    static_assert(offsetof(HC, face_) == 0 && offsetof(HC, vertex_) == 4 &&
+                  offsetof(HC, next_halfedge_) == 8 && offsetof(HC, prev_halfedge_) == 12);
+    out = {uint32_t(mesh.vertices_size()), uint32_t(mesh.edges_size()), uint32_t(mesh.faces_size()),
+           uint32_t(mesh.n_vertices()), uint32_t(mesh.n_edges()), uint32_t(mesh.n_faces()),
+           mesh.positions().empty() ? nullptr : mesh.positions().front().data(),
+           reinterpret_cast<const uint32_t*>(mesh.vconn_.data()),
+           reinterpret_cast<const pmp_halfedge*>(mesh.hconn_.data()),
+           reinterpret_cast<const uint32_t*>(mesh.fconn_.data()),
+           mesh.vdeleted_.data(), mesh.edeleted_.data(), mesh.fdeleted_.data()};
+}
 } // namespace pmp
 
 static_assert(sizeof(pmp::Scalar) == 4 && sizeof(pmp::IndexType) == 4);

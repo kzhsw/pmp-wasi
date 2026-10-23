@@ -2,7 +2,9 @@
 
 Status: implementation started; ABI version 1 remains provisional.
 The initial development module reports ABI 0 and implements mesh ownership,
-construction, properties, normals and feature detection. Its exact exports are
+construction, properties, normals, feature detection, and all ten entry points
+in the five selected families: decimation, remeshing, subdivision, smoothing
+and hole filling. Its exact exports are
 in [exports/core.json](exports/core.json). The declarations in
 [include/pmp.h](include/pmp.h) describe the proposed full contract; declarations
 outside the core manifest are not implemented. Freeze ABI version 1 after full
@@ -24,8 +26,11 @@ The reviewed PMP revision is `215975ca1efafab97477b18187a4a23b87529036`
 headers/sources, necessary Eigen headers, and license notices.
 
 The full build will compile `surface_mesh.cpp` and the 19 listed algorithm translation units directly.
-The initial core compiles only `surface_mesh.cpp`, `normals.cpp`, and `features.cpp`,
-plus the two binding/runtime files.
+The current build compiles `surface_mesh.cpp` and 13 algorithm translation units,
+including the numerical dependencies needed by these five families. The explicit
+list is in `scripts/build.mjs`. Binding code is split into `core.cpp`,
+`algorithms.cpp`, the shared internal `mesh.hpp`, and the small `runtime.cpp`.
+Use ordinary C/C++ source/header files; no generated `.inc` binding fragments.
 Do not invoke upstream's top-level CMake: `src/pmp/CMakeLists.txt` unconditionally
 includes `io/CMakeLists.txt`, and also searches for OpenMP. The following never
 enter our build or npm payload:
@@ -214,17 +219,45 @@ vertices unless the caller explicitly supplies shared topological indices; the
 binding does not weld positions implicitly.
 
 Storage support does not imply automatic attribute transfer through every
-algorithm. The initial normals/features operations preserve custom properties.
-Reserve and garbage collection follow PMP's property storage movement. Clear
-removes them. Before exposing remeshing, decimation, subdivision, triangulation,
-dual or face reversal, review each operation's transfer semantics. An operation
-must either preserve/remap a channel correctly, apply an explicitly selected
-transfer rule, or reject unsupported attached channels before mutation. Never
-silently default new UVs/colors/skin data. Seam-aware interpolation and merging
-joint-weight pairs belong in native bulk loops when needed; arbitrary JS callbacks
-inside mesh kernels are outside this design. The same review applies to named
-PMP properties and invalidated normals. No interpolation framework is included
-in the initial core.
+algorithm. The implemented transfer contract is:
+
+| Operation | Accepted attached channels beyond core storage and derived results |
+| --- | --- |
+| Normals, feature detection | All; custom channels are untouched |
+| Explicit/implicit smoothing | All; topology and custom rows are unchanged |
+| Decimation | Custom vertex rows, `v:tex`, native `h:tex`, paired features, selection |
+| Uniform/adaptive remeshing | Paired features and `v:selected` only |
+| Catmull-Clark/Loop | Paired features only |
+| Quad-tri/linear subdivision, hole filling | None |
+
+Decimation retains endpoint positions and their complete vertex property rows;
+garbage collection remaps these together. Integer joint indices and weights
+remain associated with their original surviving vertex, without interpolation
+or normalization. Native `h:tex` follows PMP's seam-aware handling: initialize
+the complete halfedge channel, including boundary rows, before decimation.
+Additional per-corner UV sets are unsupported for decimation. Vertex UVs do not
+by themselves supply its per-corner seam constraints.
+
+Paired features means both `v:feature` and `e:feature` exist, with both endpoints
+of every marked edge also marked. Both may instead be absent. Upstream interprets
+`v:selected` as an input mask; remeshing leaves newly created selection rows false.
+Before another call, explicitly refresh or remove that mask if the new vertices
+should participate. Decimation may stop above its requested count when topology,
+selection, feature, seam, or quality constraints prevent further collapses.
+
+`pmp_mesh_unsupported_properties(mesh, algorithm)` is an allocation-free,
+non-mutating preflight returning a domain bitmask: vertex=1, halfedge=2, edge=4,
+face=8. An invalid feature pair marks vertex and edge. Zero checks property
+support only. The ten mutating algorithm bindings enforce this policy before
+mutation. Callers may explicitly remove unsupported properties or run the
+operation on a separate mesh; the binding never silently defaults UV/color/skin
+channels. Arbitrary interpolation callbacks and attribute-transfer frameworks
+are outside this phase.
+
+Successful geometry mutations remove stale `v:normal`, `f:normal`, `v:curv`,
+`geodesic:distance` and `v:component` results. Recompute results after the call.
+Reserve and garbage collection follow PMP's native property movement; clear
+removes properties. Future algorithms must undergo the same transfer review.
 
 ### Ownership and invalidation
 
@@ -256,6 +289,12 @@ shape/count arithmetic receive cheap boundary validation; raw pointers remain
 caller-owned valid spans. Check overflow before multiplication/allocation, and
 retain the signed 32-bit Eigen index limit. Numerical/topological preconditions
 from upstream remain applicable, including nondegenerate inputs where required.
+The five-family entry points reject non-finite coordinates and invalid scalar
+parameters. Cotan smoothing and hole filling also check per-polygon dense matrix
+dimensions in uint64 before entering Eigen; `(valence+1)^2` doubles must fit its
+signed wasm32 allocation limit. Finite inputs alone do not guarantee finite
+results for degenerate geometry. Remeshing/hole-filling flip energies use int64
+operands so high-valence fans cannot overflow squared int32 errors.
 
 ## Freestanding runtime and patches
 
@@ -307,11 +346,16 @@ Internal recoverable solver failures must be tested before accepting a patch.
 
 ### Feasibility evidence
 
-The implemented ABI 0 core builds to 72,725 bytes (24,531 gzip) with SDK 32 and
-Binaryen 129. It exports 27 names including memory, has zero imports/start/init,
-and passes native-reference and storage tests. The build records its size,
-features and actual compiler versions in `build/report.json`. These numbers
-cover mesh construction/properties, normals and feature detection only.
+The five-family ABI 0 module exports 38 names including memory and has zero
+imports/start/init. `build/report.json` records the exact raw/gzip size, features,
+artifact hash and compiler versions. Node and Chromium run the same workflows;
+22 algorithm fixtures compare against untouched native PMP, including a tiny
+remeshing mesh that exercises the original singular-inverse fallback. Attribute,
+seam, repeated-operation, size-guard and memory tests supplement those fixtures.
+A 50,000-valence fan regression exercises the widened flip energies and checks
+all resulting halfedge/triangle invariants in both runtimes.
+The earlier normals/features-only module was 72,725 bytes (24,531 gzip), which
+is not the size of the current five-family build.
 
 A limited SDK 32 core probe (mesh construction, destruction and position access)
 links and runs with no imports and no initialization call. After Binaryen it is
@@ -358,11 +402,13 @@ The SDK 32 core probe reports mutable-globals, nontrapping-fptoint, bulk-memory,
 sign-ext, reference-types, multivalue and extended-const. Binaryen also reports
 bulk-memory-opt and call-indirect-overlong as feature/encoding switches. Record
 the full module's final baseline when all algorithms are linked; do not infer
-it from the SDK version alone. Feature tuning is deferred as requested.
+it from the SDK version alone. Keep nontrapping-fptoint enabled: it is part of
+SDK 32's baseline and is used by emitted saturating conversions. The compatibility
+and SIMD decision are recorded in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 Do not enable fast-math: PMP uses finite/degenerate checks and numerically
 sensitive solvers. Preserve upstream double precision. Later benchmark `-O3`
-against `-Os`/`-Oz`, inlining and SIMD before choosing a speed/size tradeoff;
+against `-Os`/`-Oz` and inlining before changing the speed/size tradeoff;
 no single setting can guarantee both the fastest and smallest result.
 
 Allocator tuning is permitted when measurements show significant cost. Start
@@ -421,6 +467,7 @@ public remote exists. Do not publish stubs or paths to nonexistent build output.
    algorithm timings. Core probe size is not a full-library size estimate.
    Confirm npm's payload excludes sources, clones, maps, probes and toolchains.
 
-The implementation should need only a small C++ binding file, a runtime file,
-the JS loader/declarations, a build script and a Wasm audit script, plus focused
-upstream patches and behavior fixtures. Add infrastructure only when needed.
+Keep the implementation split by responsibility: mesh storage, algorithm
+boundaries, shared internal checks and fatal runtime hooks. The JS layer remains
+a loader and direct view helpers. Native-reference fixtures and shared Node/
+browser scenarios validate behavior without generating a binding framework.

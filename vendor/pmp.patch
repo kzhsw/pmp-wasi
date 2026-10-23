@@ -1,3 +1,308 @@
+--- a/pmp/algorithms/curvature.cpp
++++ b/pmp/algorithms/curvature.cpp
+@@ -2,7 +2,7 @@
+ // SPDX-License-Identifier: MIT
+ 
+ #include "pmp/algorithms/curvature.h"
+-#include "pmp/exceptions.h"
++#include "pmp/error.h"
+ #include "pmp/algorithms/normals.h"
+ #include "pmp/algorithms/differential_geometry.h"
+ #include "pmp/algorithms/laplace.h"
+@@ -443,7 +443,7 @@
+             break;
+         }
+         default:
+-            throw InvalidInputException("Unknown Curvature type");
++            fail();
+     }
+ }
+ 
+--- a/pmp/algorithms/decimation.cpp
++++ b/pmp/algorithms/decimation.cpp
+@@ -462,7 +462,7 @@
+ Decimation::Decimation(SurfaceMesh& mesh) : mesh_(mesh)
+ {
+     if (!mesh_.is_triangle_mesh())
+-        throw InvalidInputException("Input is not a triangle mesh!");
++        fail();
+ 
+     aspect_ratio_ = 0;
+     edge_length_ = 0;
+--- a/pmp/algorithms/differential_geometry.cpp
++++ b/pmp/algorithms/differential_geometry.cpp
+@@ -130,7 +130,7 @@
+ {
+     if (!mesh.is_triangle_mesh())
+     {
+-        throw InvalidInputException("Input is not a triangle mesh!");
++        fail();
+     }
+ 
+     Scalar volume(0);
+--- a/pmp/algorithms/fairing.cpp
++++ b/pmp/algorithms/fairing.cpp
+@@ -92,8 +92,7 @@
+     if (!something_locked)
+     {
+         cleanup();
+-        auto what = std::string{__func__} + ": Missing boundary constraints.";
+-        throw InvalidInputException(what);
++        fail();
+     }
+ 
+     const int n = mesh.n_vertices();
+--- a/pmp/algorithms/hole_filling.cpp
++++ b/pmp/algorithms/hole_filling.cpp
+@@ -134,14 +134,13 @@
+ {
+     if (!h.is_valid())
+     {
+-        throw InvalidInputException("HoleFilling: Invalid halfedge.");
++        fail();
+     }
+ 
+     // is it really a hole?
+     if (!mesh_.is_boundary(h))
+     {
+-        auto what = std::string{__func__} + ": Not a boundary halfedge.";
+-        throw InvalidInputException(what);
++        fail();
+     }
+ 
+     // lock vertices/edge that already exist, to be later able to
+@@ -153,20 +152,9 @@
+     for (auto e : mesh_.edges())
+         elocked_[e] = true;
+ 
+-    try
+-    {
+-        triangulate_hole(h); // do minimal triangulation
+-        refine();            // refine filled-in edges
+-    }
+-    catch (InvalidInputException& e)
+-    {
+-        // clean up
+-        hole_.clear();
+-        mesh_.remove_vertex_property(vlocked_);
+-        mesh_.remove_edge_property(elocked_);
+-
+-        throw e;
+-    }
++    // Escaping failures trap; callers discard the entire instance without unwinding.
++    triangulate_hole(h); // do minimal triangulation
++    refine();           // refine filled-in edges
+ 
+     // clean up
+     hole_.clear();
+@@ -184,8 +172,7 @@
+         // check for manifoldness
+         if (!mesh_.is_manifold(mesh_.to_vertex(hit)))
+         {
+-            auto what = std::string{__func__} + ": Non-manifold hole.";
+-            throw InvalidInputException(what);
++            fail();
+         }
+ 
+         hole_.emplace_back(hit);
+@@ -404,7 +391,8 @@
+     Halfedge h;
+     int val0, val1, val2, val3;
+     int val_opt0, val_opt1, val_opt2, val_opt3;
+-    int ve0, ve1, ve2, ve3, ve_before, ve_after;
++    // Squared valence errors can exceed int32 for large manifold vertex fans.
++    int64_t ve0, ve1, ve2, ve3, ve_before, ve_after;
+     bool ok;
+     int i;
+ 
+@@ -519,8 +507,7 @@
+     {
+         // clean up
+         mesh_.remove_vertex_property(idx);
+-        auto what = std::string{__func__} + ": Failed to solve linear system.";
+-        throw SolverException(what);
++        fail();
+     }
+ 
+     // copy solution to mesh vertices
+@@ -595,18 +582,8 @@
+     for (auto v : mesh_.vertices())
+         vsel[v] = !vlocked_[v];
+ 
+-    try
+-    {
+-        // fair new vertices
+-        minimize_curvature(mesh_);
+-    }
+-    catch (SolverException& e)
+-    {
+-        // clean up
+-        if (add_vsel)
+-            mesh_.remove_vertex_property(vsel);
+-        throw e;
+-    }
++    // This catch only cleaned up and rethrew upstream; failures remain fatal.
++    minimize_curvature(mesh_);
+ 
+     // clean up
+     if (add_vsel)
+--- a/pmp/algorithms/laplace.cpp
++++ b/pmp/algorithms/laplace.cpp
+@@ -237,7 +237,6 @@
+     }
+     else
+     {
+-        std::cerr << "Should not happen\n";
+         Ltri.setZero();
+     }
+ #endif
+@@ -529,7 +528,7 @@
+     // clamp negative off-diagonal entries to zero
+     if (clamp)
+     {
+-        for (unsigned int k = 0; k < L.outerSize(); k++)
++        for (Eigen::Index k = 0; k < L.outerSize(); k++)
+         {
+             double diag_offset(0.0);
+ 
+--- a/pmp/algorithms/numerics.cpp
++++ b/pmp/algorithms/numerics.cpp
+@@ -11,16 +11,13 @@
+     solver.compute(A);
+     if (solver.info() != Eigen::Success)
+     {
+-        auto what =
+-            std::string{__func__} + ": Failed to factorize linear system.";
+-        throw SolverException(what);
++        fail();
+     }
+ 
+     const DenseMatrix x = solver.solve(b);
+     if (solver.info() != Eigen::Success)
+     {
+-        auto what = std::string{__func__} + ": Failed to solve linear system.";
+-        throw SolverException(what);
++        fail();
+     }
+ 
+     return x;
+@@ -56,7 +53,7 @@
+     // update rhs with constraints
+     std::vector<Triplet> triplets;
+     triplets.reserve(A.nonZeros());
+-    for (unsigned int k = 0; k < A.outerSize(); k++)
++    for (Eigen::Index k = 0; k < A.outerSize(); k++)
+     {
+         for (SparseMatrix::InnerIterator iter(A, k); iter; ++iter)
+         {
+@@ -84,17 +81,14 @@
+     solver.compute(AA);
+     if (solver.info() != Eigen::Success)
+     {
+-        auto what =
+-            std::string{__func__} + ": Failed to factorize linear system.";
+-        throw SolverException(what);
++        fail();
+     }
+ 
+     // solve system
+     const DenseMatrix XX = solver.solve(BB);
+     if (solver.info() != Eigen::Success)
+     {
+-        auto what = std::string{__func__} + ": Failed to solve linear system.";
+-        throw SolverException(what);
++        fail();
+     }
+ 
+     // build full-size result vector from solver result (X) and constraints (C)
+--- a/pmp/algorithms/remeshing.cpp
++++ b/pmp/algorithms/remeshing.cpp
+@@ -269,7 +269,7 @@
+     void tangential_smoothing(unsigned int iterations);
+     void remove_caps();
+ 
+-    Point minimize_squared_areas(Vertex v);
++    bool minimize_squared_areas(Vertex v, Point& result);
+     Point weighted_centroid(Vertex v);
+ 
+     void project_to_reference(Vertex v);
+@@ -316,7 +316,7 @@
+     : mesh_(mesh), refmesh_(nullptr), kd_tree_(nullptr)
+ {
+     if (!mesh_.is_triangle_mesh())
+-        throw InvalidInputException("Input is not a triangle mesh!");
++        fail();
+ 
+     points_ = mesh_.vertex_property<Point>("v:point");
+ 
+@@ -832,7 +832,8 @@
+     Halfedge h;
+     int val0, val1, val2, val3;
+     int val_opt0, val_opt1, val_opt2, val_opt3;
+-    int ve0, ve1, ve2, ve3, ve_before, ve_after;
++    // Squared valence errors can exceed int32 for large manifold vertex fans.
++    int64_t ve0, ve1, ve2, ve3, ve_before, ve_after;
+     bool ok;
+     int i;
+ 
+@@ -992,11 +993,7 @@
+                 else
+                 {
+                     Point p(0);
+-                    try
+-                    {
+-                        p = minimize_squared_areas(v);
+-                    }
+-                    catch (SolverException&)
++                    if (!minimize_squared_areas(v, p))
+                     {
+                         p = weighted_centroid(v);
+                     }
+@@ -1095,7 +1092,7 @@
+     }
+ }
+ 
+-Point Remeshing::minimize_squared_areas(Vertex v)
++bool Remeshing::minimize_squared_areas(Vertex v, Point& result)
+ {
+     dmat3 A(0);
+     dvec3 b(0), x;
+@@ -1127,17 +1124,12 @@
+     }
+ 
+     // compute minimizer
+-    try
+-    {
+-        x = inverse(A) * b;
+-    }
+-    catch (...)
+-    {
+-        auto what = std::string{__func__} + ": Matrix not invertible.";
+-        throw SolverException(what);
+-    }
+-
+-    return Point(x);
++    dmat3 inv;
++    if (!try_inverse(A, inv))
++        return false;
++    x = inv * b;
++    result = Point(x);
++    return true;
+ }
+ 
+ Point Remeshing::weighted_centroid(Vertex v)
+--- a/pmp/algorithms/subdivision.cpp
++++ b/pmp/algorithms/subdivision.cpp
+@@ -195,8 +195,7 @@
+ 
+     if (!mesh.is_triangle_mesh())
+     {
+-        auto what = std::string{__func__} + ": Not a triangle mesh.";
+-        throw InvalidInputException(what);
++        fail();
+     }
+ 
+     // reserve memory
 --- /dev/null
 +++ b/pmp/error.h
 @@ -0,0 +1,6 @@
@@ -45,16 +350,48 @@
  //! matrix-matrix multiplication
  template <typename Scalar, int M, int N, int K>
  Matrix<Scalar, M, N> operator*(const Matrix<Scalar, M, K>& m1,
-@@ -969,7 +955,7 @@
+@@ -962,17 +948,16 @@
+            m(2, 0) * m(0, 1) * m(1, 2) - m(2, 0) * m(0, 2) * m(1, 1);
+ }
+ 
+-//! return the inverse of a 3x3 matrix
+-template <typename Scalar>
+-Mat3<Scalar> inverse(const Mat3<Scalar>& m)
++//! Compute the inverse, returning false for the same singular cases as upstream.
++template <typename Scalar>
++bool try_inverse(const Mat3<Scalar>& m, Mat3<Scalar>& inv)
+ {
      const Scalar det = determinant(m);
      if (fabs(det) < 1.0e-10 || std::isnan(det))
      {
 -        throw SolverException("3x3 matrix not invertible");
-+        fail();
-     }
+-    }
+-
+-    Mat3<Scalar> inv;
++        return false;
++    }
++
+     inv(0, 0) = (m(1, 1) * m(2, 2) - m(1, 2) * m(2, 1)) / det;
+     inv(0, 1) = (m(0, 2) * m(2, 1) - m(0, 1) * m(2, 2)) / det;
+     inv(0, 2) = (m(0, 1) * m(1, 2) - m(0, 2) * m(1, 1)) / det;
+@@ -983,6 +968,16 @@
+     inv(2, 1) = (m(0, 1) * m(2, 0) - m(0, 0) * m(2, 1)) / det;
+     inv(2, 2) = (m(0, 0) * m(1, 1) - m(0, 1) * m(1, 0)) / det;
  
-     Mat3<Scalar> inv;
-@@ -1109,25 +1095,6 @@
++    return true;
++}
++
++//! Fatal convenience form for callers without an internal recovery path.
++template <typename Scalar>
++Mat3<Scalar> inverse(const Mat3<Scalar>& m)
++{
++    Mat3<Scalar> inv;
++    if (!try_inverse(m, inv))
++        fail();
+     return inv;
+ }
+ 
+@@ -1109,25 +1104,6 @@
      return false;
  }
  
@@ -162,7 +499,24 @@
      {
          assert(parray_ != nullptr);
          return parray_->vector();
-@@ -221,9 +220,7 @@
+@@ -202,6 +201,16 @@
+     // returns the number of property arrays
+     size_t n_properties() const { return parrays_.size(); }
+ 
++    // Inspect names without allocating a copied list (Wasm preflight checks).
++    template <class Predicate>
++    bool any_property(Predicate predicate) const
++    {
++        for (const auto* property : parrays_)
++            if (predicate(std::string_view(property->name())))
++                return true;
++        return false;
++    }
++
+     // returns a vector of all property names
+     std::vector<std::string> properties() const
+     {
+@@ -221,9 +230,7 @@
          {
              if (parray->name() == name)
              {
@@ -173,7 +527,7 @@
              }
          }
  
-@@ -235,7 +232,7 @@
+@@ -235,7 +242,7 @@
      }
  
      // do we have a property with a given name?
@@ -182,7 +536,7 @@
      {
          for (auto parray : parrays_)
              if (parray->name() == name)
-@@ -245,11 +242,13 @@
+@@ -245,11 +252,13 @@
  
      // get a property by its name. returns invalid property if it does not exist.
      template <class T>
@@ -198,7 +552,7 @@
          return Property<T>();
      }
  
-@@ -280,6 +279,19 @@
+@@ -280,6 +289,19 @@
          }
      }
  

@@ -948,17 +948,16 @@ Scalar determinant(const Mat3<Scalar>& m)
            m(2, 0) * m(0, 1) * m(1, 2) - m(2, 0) * m(0, 2) * m(1, 1);
 }
 
-//! return the inverse of a 3x3 matrix
+//! Compute the inverse, returning false for the same singular cases as upstream.
 template <typename Scalar>
-Mat3<Scalar> inverse(const Mat3<Scalar>& m)
+bool try_inverse(const Mat3<Scalar>& m, Mat3<Scalar>& inv)
 {
     const Scalar det = determinant(m);
     if (fabs(det) < 1.0e-10 || std::isnan(det))
     {
-        fail();
+        return false;
     }
 
-    Mat3<Scalar> inv;
     inv(0, 0) = (m(1, 1) * m(2, 2) - m(1, 2) * m(2, 1)) / det;
     inv(0, 1) = (m(0, 2) * m(2, 1) - m(0, 1) * m(2, 2)) / det;
     inv(0, 2) = (m(0, 1) * m(1, 2) - m(0, 2) * m(1, 1)) / det;
@@ -969,6 +968,16 @@ Mat3<Scalar> inverse(const Mat3<Scalar>& m)
     inv(2, 1) = (m(0, 1) * m(2, 0) - m(0, 0) * m(2, 1)) / det;
     inv(2, 2) = (m(0, 0) * m(1, 1) - m(0, 1) * m(1, 0)) / det;
 
+    return true;
+}
+
+//! Fatal convenience form for callers without an internal recovery path.
+template <typename Scalar>
+Mat3<Scalar> inverse(const Mat3<Scalar>& m)
+{
+    Mat3<Scalar> inv;
+    if (!try_inverse(m, inv))
+        fail();
     return inv;
 }
 

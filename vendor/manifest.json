@@ -1,6 +1,61 @@
 {
   "pmp": [
     {
+      "path": "pmp/algorithms/barycentric_coordinates.h",
+      "original": "08218b0a0cdf514bd01dbb82a3cb159673785697782dedf8f086fccd3417808c",
+      "adapted": "08218b0a0cdf514bd01dbb82a3cb159673785697782dedf8f086fccd3417808c"
+    },
+    {
+      "path": "pmp/algorithms/curvature.cpp",
+      "original": "d1127118a135a7a95d3bf25d965baaa31826c306423c6be9b00ec47072b768cf",
+      "adapted": "864463ab85a9b8d978dbda946b95f1a014296a6390f3ba12933ec340d49f81ac"
+    },
+    {
+      "path": "pmp/algorithms/curvature.h",
+      "original": "d21de647755edd3a4bad5288aa008449a9365ebd12db9768e1268592ace0b023",
+      "adapted": "d21de647755edd3a4bad5288aa008449a9365ebd12db9768e1268592ace0b023"
+    },
+    {
+      "path": "pmp/algorithms/decimation.cpp",
+      "original": "79235aff35733d1e26c34ea86d452a760de3f420386eee2ddf98704da6417b00",
+      "adapted": "cafac95ae7a48a38df883f4270964839d41158d27396800a5727b812c155b818"
+    },
+    {
+      "path": "pmp/algorithms/decimation.h",
+      "original": "90f317a7d8387bd7b1bb07f27861859df352827a72c8d71843128c004f9450b0",
+      "adapted": "90f317a7d8387bd7b1bb07f27861859df352827a72c8d71843128c004f9450b0"
+    },
+    {
+      "path": "pmp/algorithms/differential_geometry.cpp",
+      "original": "0602904195ab806e4baafb2fa7e51caf5ab70c1901bdf023e7b90c6f52085790",
+      "adapted": "558f097d94e618e58c74552a7ab4818bfdca7d35917d5f171c14b07d2055997e"
+    },
+    {
+      "path": "pmp/algorithms/differential_geometry.h",
+      "original": "8568149b251b11e8ca37166a4ae9a05789c1851b6c64c13823c52ebbf216fc1b",
+      "adapted": "8568149b251b11e8ca37166a4ae9a05789c1851b6c64c13823c52ebbf216fc1b"
+    },
+    {
+      "path": "pmp/algorithms/distance_point_triangle.cpp",
+      "original": "c38982d16876809426e86391499e813d245845e0afe752856f1e76d70865e00b",
+      "adapted": "c38982d16876809426e86391499e813d245845e0afe752856f1e76d70865e00b"
+    },
+    {
+      "path": "pmp/algorithms/distance_point_triangle.h",
+      "original": "30fb960a3011a192aeb49c65fc0eb98213af0cbd6168edfe96eb569ddabc4e62",
+      "adapted": "30fb960a3011a192aeb49c65fc0eb98213af0cbd6168edfe96eb569ddabc4e62"
+    },
+    {
+      "path": "pmp/algorithms/fairing.cpp",
+      "original": "e30942eaf3610bddc8d3d8f34a1bce302de83ca4b0b75f36056ab38e723bc2ea",
+      "adapted": "cfa5547ed912d483ebb187d10184770f5db6c3f788a0a7c1bf9845c24a0c3da7"
+    },
+    {
+      "path": "pmp/algorithms/fairing.h",
+      "original": "72e531413cbf4551e81db666ccd589f15d937d557b75bc9006ee0fe114a770ec",
+      "adapted": "72e531413cbf4551e81db666ccd589f15d937d557b75bc9006ee0fe114a770ec"
+    },
+    {
       "path": "pmp/algorithms/features.cpp",
       "original": "bf353fe3183e5a504e764fe7e3d6c6bdc24990992b346a7fd211cf2823af3890",
       "adapted": "bf353fe3183e5a504e764fe7e3d6c6bdc24990992b346a7fd211cf2823af3890"
@@ -9,6 +64,26 @@
       "path": "pmp/algorithms/features.h",
       "original": "f1279bdde93a514bb93a7ed85ac3f2e4a0167b556b4d9b8cb7daeb0b0924e846",
       "adapted": "f1279bdde93a514bb93a7ed85ac3f2e4a0167b556b4d9b8cb7daeb0b0924e846"
+    },
+    {
+      "path": "pmp/algorithms/hole_filling.cpp",
+      "original": "4585b95567c952502d9b2ebcdbfcff1a4b9cd23ce3ed33b8a22024959a746dd9",
+      "adapted": "317c702e4fd6477490f4cb7140c97f05bd943846ca70ad00ec52071d0fdda493"
+    },
+    {
+      "path": "pmp/algorithms/hole_filling.h",
+      "original": "bfcd32b2243b3d904260d09d0ef7012b2b5221bfd4c0e13b51cdebd28351bd7c",
+      "adapted": "bfcd32b2243b3d904260d09d0ef7012b2b5221bfd4c0e13b51cdebd28351bd7c"
+    },
+    {
+      "path": "pmp/algorithms/laplace.cpp",
+      "original": "d7bb3f0949ac5ab9f99f4cba865995a05d0d1e637ee4affe89147f33a5591fab",
+      "adapted": "3a76b2ee4b78b1c168c3aa11804c7cf8bde753b0333a19f177d1a4d3f1fca0db"
+    },
+    {
+      "path": "pmp/algorithms/laplace.h",
+      "original": "6af16ed80bdaf91b3758c59f2dbf50df8e9937c1e4648a662c5b82f505da59a0",
+      "adapted": "6af16ed80bdaf91b3758c59f2dbf50df8e9937c1e4648a662c5b82f505da59a0"
     },
     {
       "path": "pmp/algorithms/normals.cpp",
@@ -21,6 +96,51 @@
       "adapted": "d8d12bbaf95538febf207e02d59629edac047c8b7ea87ebef1aefeb0aeef58fd"
     },
     {
+      "path": "pmp/algorithms/numerics.cpp",
+      "original": "1a85f93f849312a7ca94fb7bdbc1270c46c0d13023c915ad50943969c9a41839",
+      "adapted": "e0cf0e7ac4d1b94c9385d2edd1858451c1d8ba4ef38666585c93b014278502cd"
+    },
+    {
+      "path": "pmp/algorithms/numerics.h",
+      "original": "04e4242818726dbf564958f1e3c446c397abce8aa65ddb3b94b1ff71456e70b5",
+      "adapted": "04e4242818726dbf564958f1e3c446c397abce8aa65ddb3b94b1ff71456e70b5"
+    },
+    {
+      "path": "pmp/algorithms/remeshing.cpp",
+      "original": "ed904581faeb77d68daa7486139abe215abacc526225532975f00789b9494823",
+      "adapted": "c93f152593bcf440ec21a2e654067c837d992e188d41dd73eb6addcf0259292a"
+    },
+    {
+      "path": "pmp/algorithms/remeshing.h",
+      "original": "b3a80de306be17a96e214671f5618f2bcf7b86a4805bd1a534d1b5c70d8f8638",
+      "adapted": "b3a80de306be17a96e214671f5618f2bcf7b86a4805bd1a534d1b5c70d8f8638"
+    },
+    {
+      "path": "pmp/algorithms/smoothing.cpp",
+      "original": "440c889f3fcfea8afe3aa7ba5325a35791016aa659e1928b6df70c9ff1aa0b75",
+      "adapted": "440c889f3fcfea8afe3aa7ba5325a35791016aa659e1928b6df70c9ff1aa0b75"
+    },
+    {
+      "path": "pmp/algorithms/smoothing.h",
+      "original": "449d6a01f82ddb24615e38ff0c8ec6edfc49dc3e58fe52879dd46c91323d19bd",
+      "adapted": "449d6a01f82ddb24615e38ff0c8ec6edfc49dc3e58fe52879dd46c91323d19bd"
+    },
+    {
+      "path": "pmp/algorithms/subdivision.cpp",
+      "original": "daf452b96f98d77c35dafc1b801699b9244d56343897fea7e5605693eb2f885c",
+      "adapted": "3991818d446d81931f764c025e83dc83e12e5dab62b5d730699e16434baad06a"
+    },
+    {
+      "path": "pmp/algorithms/subdivision.h",
+      "original": "1e4e0899760e107f5238078c624313eeaf1e808cac80d717c583fa96837a126b",
+      "adapted": "1e4e0899760e107f5238078c624313eeaf1e808cac80d717c583fa96837a126b"
+    },
+    {
+      "path": "pmp/bounding_box.h",
+      "original": "fffccb917607b4f966f94e191c7e46d7f2fb41b1961ff3f4017c2273d411c798",
+      "adapted": "fffccb917607b4f966f94e191c7e46d7f2fb41b1961ff3f4017c2273d411c798"
+    },
+    {
       "path": "pmp/error.h",
       "original": null,
       "adapted": "ef038fe1359d5b672e77f0f069373983f77ca34bb6e8915d85fe2936066dc1e6"
@@ -28,12 +148,12 @@
     {
       "path": "pmp/mat_vec.h",
       "original": "3d3d9bb508f657d86adc7d6403045f8c18199b271fcfb42c2b5db8a09ebf604f",
-      "adapted": "3e95fdb0b91f6096982e26dfe9c23c20c33aa6e11fa3bbadd54befe00b2feda7"
+      "adapted": "4d5c36f711faeaf962dd2621d651a195a12d9cc5e3c613549e01c8c786c8cc0f"
     },
     {
       "path": "pmp/properties.h",
       "original": "345d90e411d057eb9f91e9f0b78f3a89c7e505da07aeebce885f2f1cdc549be1",
-      "adapted": "148be5e94c57e14a0d16eff0bc3756657dc4aec8c7ffdd303c340b7511fdf3d2"
+      "adapted": "cba3ee5ad2ba886c011d44ae23625e16a8aec1d371a32a5d9eaf0bb133adfea0"
     },
     {
       "path": "pmp/surface_mesh.cpp",
@@ -44,6 +164,11 @@
       "path": "pmp/surface_mesh.h",
       "original": "62aa29fd1f52be503ff54cad15034ea9ab3e0ac735f48cea35ff6550b252eecb",
       "adapted": "26195b067a2b5c5c0d2426da8e0ee33ec441e44843ad9ad0e07e576536cc8a3e"
+    },
+    {
+      "path": "pmp/tolerances.h",
+      "original": "9e40c9b4f26798ffefe4c50e049d87f57392372711b1add05a7f1facb7b131f7",
+      "adapted": "9e40c9b4f26798ffefe4c50e049d87f57392372711b1add05a7f1facb7b131f7"
     },
     {
       "path": "pmp/types.h",

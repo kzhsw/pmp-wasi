@@ -32,12 +32,14 @@ const run = (exe, args) => {
 const exports = JSON.parse(readFileSync('exports/core.json', 'utf8'));
 const planned = JSON.parse(readFileSync('wasm-exports.json', 'utf8'));
 assert(exports.every(name => planned.includes(name)));
-const sources = ['src/core.cpp', 'src/runtime.cpp', 'vendor/pmp/surface_mesh.cpp',
-  'vendor/pmp/algorithms/normals.cpp', 'vendor/pmp/algorithms/features.cpp'];
+const sources = ['src/core.cpp', 'src/algorithms.cpp', 'src/runtime.cpp', 'vendor/pmp/surface_mesh.cpp',
+  ...['normals', 'features', 'decimation', 'subdivision', 'distance_point_triangle',
+    'remeshing', 'curvature', 'smoothing', 'laplace', 'numerics', 'differential_geometry',
+    'fairing', 'hole_filling'].map(name => `vendor/pmp/algorithms/${name}.cpp`)];
 mkdirSync('build', { recursive: true });
 const flags = ['-std=c++20', '-O3', '-flto', '-ffreestanding', '-fno-exceptions', '-fno-rtti',
   '-ffunction-sections', '-fdata-sections', '-DNDEBUG', '-DEIGEN_DONT_PARALLELIZE',
-  '-Wall', '-Wextra', '-Iinclude', '-Ivendor', '-isystem', 'vendor/eigen'];
+  '-Wall', '-Wextra', '-Werror', '-Iinclude', '-Ivendor', '-isystem', 'vendor/eigen'];
 const objects = sources.map((source, i) => {
   const object = `build/${i}.o`;
   run(cxx, [...flags, '-MMD', '-MF', `build/${i}.d`, '-c', source, '-o', object]);

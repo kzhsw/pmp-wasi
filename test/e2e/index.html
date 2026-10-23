@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>PMP Wasm end-to-end test</title>
+<output>Loading test module…</output>
+<script type="module">
+import { runScenario } from '/test/e2e/scenario.mjs';
+import { runAlgorithms } from '/test/e2e/algorithms.mjs';
+
+window.runPmpE2E = async mode => {
+  const response = await fetch('/build/pmp-core.wasm');
+  if (!response.ok) throw new Error(`Wasm fetch failed: ${response.status}`);
+  const source = mode === 'streaming'
+    ? await WebAssembly.compileStreaming(response) : await response.arrayBuffer();
+  const [fixtures, exports, algorithmFixtures] = await Promise.all([
+    fetch('/test/fixtures/native-core.json').then(response => response.json()),
+    fetch('/exports/core.json').then(response => response.json()),
+    fetch('/test/fixtures/native-algorithms.json').then(response => response.json()),
+  ]);
+  const core = await runScenario(source, fixtures, exports);
+  const algorithms = await runAlgorithms(source, algorithmFixtures);
+  const result = { cases: [...core.cases, ...algorithms.cases], assertions: core.assertions + algorithms.assertions };
+  document.querySelector('output').textContent = `${mode}: ${result.cases.length} workflows passed`;
+  return result;
+};
+</script>
+</html>

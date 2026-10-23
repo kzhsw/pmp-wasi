@@ -3,6 +3,8 @@ export const Property = Object.freeze({ BOOL: 0, I32: 1, U32: 2, F32: 3, F64: 4,
   VEC2F: 5, VEC3F: 6, VEC4F: 7, VEC4U32: 8, VEC4U16: 9, RGBA8: 10 });
 export const Domain = Object.freeze({ VERTEX: 0, HALFEDGE: 1, EDGE: 2, FACE: 3 });
 export const Winding = Object.freeze({ CCW: 0, CW: 1 });
+export const Algorithm = Object.freeze({ DECIMATE: 0, UNIFORM_REMESH: 1, ADAPTIVE_REMESH: 2,
+  CATMULL_CLARK: 3, LOOP: 4, QUAD_TRI: 5, LINEAR: 6, EXPLICIT_SMOOTH: 7, IMPLICIT_SMOOTH: 8, FILL_HOLE: 9 });
 const layouts = [[Uint8Array, 1], [Int32Array, 1], [Uint32Array, 1], [Float32Array, 1],
   [Float64Array, 1], [Float32Array, 2], [Float32Array, 3], [Float32Array, 4],
   [Uint32Array, 4], [Uint16Array, 4], [Uint8Array, 4]];

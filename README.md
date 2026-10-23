@@ -3,51 +3,64 @@
 A minimal port of [PMP](https://github.com/pmp-library/pmp-library) algorithms to
 freestanding, single-threaded WebAssembly using wasi-sdk.
 
-The initial implementation provides mesh construction, zero-copy native views,
-typed properties, normals and feature detection. It supports multiple UV sets,
-colors and skinning channels, plus CW/CCW bulk input with per-corner mappings for
-seams. [exports/core.json](exports/core.json) lists the supported development
-exports (ABI 0). The full [C ABI](include/pmp.h) is still a proposal; remeshing,
-decimation, solvers and other algorithm families are not implemented yet.
+The development build implements all five requested algorithm families:
 
-This project targets a future public npm release. Publication is disabled and
-the package has no dependencies. npm distribution entry points will follow full
-ABI validation and completion of the third-party notices.
+| Family | Direct C/Wasm functions |
+| --- | --- |
+| Decimation | `pmp_decimate` |
+| Remeshing | `pmp_uniform_remeshing`, `pmp_adaptive_remeshing` |
+| Subdivision | `pmp_catmull_clark_subdivision`, `pmp_loop_subdivision`, `pmp_quad_tri_subdivision`, `pmp_linear_subdivision` |
+| Smoothing | `pmp_explicit_smoothing`, `pmp_implicit_smoothing` |
+| Hole filling | `pmp_fill_hole` |
 
-[DESIGN.md](DESIGN.md) defines the source boundary, direct mapping to PMP,
-zero-copy memory contract, runtime removal, and build acceptance checks.
-[upstream.json](upstream.json) pins the reviewed sources and source allowlist.
+It also provides mesh construction, normals, feature detection, zero-copy native
+views, typed attributes, and CW/CCW input with per-corner mappings. Multiple UV
+sets, colors and skinning channels have native storage. Attribute transfer has
+explicit limits: smoothing preserves channels; decimation retains surviving
+vertex rows and supports PMP's seam-aware `h:tex`; other topology changes reject
+channels they cannot transfer. An allocation-free preflight query reports these
+before mutation. See the [attribute contract](DESIGN.md#additional-attributes-and-winding).
 
-The intended package contains one `pmp.wasm`, a small ESM loader with TypeScript
-declarations, the C header, and license notices. Callers can use the Wasm exports
-directly. There is no Emscripten, WASI host, filesystem, socket, worker, or thread
-runtime.
+[exports/core.json](exports/core.json) is the exact implemented export list
+(ABI 0). The larger [C header](include/pmp.h) remains a proposal for the rest of
+PMP's algorithm API. This private, dependency-free project targets a future
+public npm release; the current npm payload contains design metadata, without a
+runtime entry point, while the remaining ABI and runtime notices are completed.
 
-Build with an existing WASI SDK and Binaryen installation. Set `WASI_SDK_PATH`
-and `BINARYEN_PATH` to their installation directories, then run:
+Build with existing WASI SDK and Binaryen installations. Set `WASI_SDK_PATH`
+and `BINARYEN_PATH` to their directories, then run:
 
 ```sh
 npm run build
 npm test
+npm run test:e2e
+npm run bench
 ```
 
-`npm run bench` measures construction, normals and feature detection on a
-32,768-triangle grid. `npm run fixtures` regenerates the test baseline using a
-host compiler and the unmodified checkout selected by `PMP_UPSTREAM_PATH`.
+Browser tests require `PLAYWRIGHT_MODULE`, `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, and
+optionally `PLAYWRIGHT_CHROMIUM_ARGS`/the browser's system library search path.
+They use an existing installation and download nothing. `npm run test:e2e:node`
+runs the same workflows in Node alone. `npm run fixtures` regenerates both test
+baselines with a host compiler and the pinned, unmodified checkout selected by
+`PMP_UPSTREAM_PATH`.
 
 The build writes `build/pmp-core.wasm` and `build/report.json`. It uses no network,
-checks the exact exports, rejects host imports and live I/O/runtime symbols,
-proves the unused constructor empty before removing it, and validates instructions
-against the linked SDK's feature baseline. Tests compare against fixtures from
-unmodified native PMP and exercise memory aliasing, attributes, winding and growth.
+checks exact exports, rejects host imports and live I/O/runtime symbols, proves
+the unused constructor empty before removing it, and validates instructions
+against the linked SDK feature baseline. No WASI host or initialization call is
+needed. Node/browser tests exercise all ten algorithm entry points, native
+reference results, repeated operations, seams, attributes, winding, memory
+growth, traps and remeshing's numerical fallback.
 
-For development, import `instantiate`, `meshView`, `attributeView`, `Property`,
-`Domain` and `Winding` from `src/index.js`. `instantiate(bytes)` returns the raw
-Wasm exports; it needs no WASI object or initialization call. Types are in
-`src/index.d.ts` and an end-to-end usage example is in [examples/core.mjs](examples/core.mjs).
+Import `instantiate`, `meshView`, `attributeView`, `Property`, `Domain`, `Winding`
+and `Algorithm` from `src/index.js` during development. `instantiate(bytes)` or
+`instantiate(module)` returns the raw exports. The wrapper does not load files,
+fetch URLs, copy mesh buffers, or wrap individual algorithms. Types are in
+`src/index.d.ts`; [examples/core.mjs](examples/core.mjs) shows direct storage,
+multiple attributes and preflight use.
 
-Arrays returned by view helpers borrow Wasm storage. Reacquire them after calls
-that allocate or change the mesh; JS helper metadata allocations can also grow
-memory. Discard the whole instance after a trap. Extra attributes have native
-storage support, but automatic interpolation through future topology-changing
-algorithms is not implemented. These contracts are detailed in the design.
+Borrowed arrays must be reacquired after allocation or mutation, including
+helper metadata allocations. Discard the entire instance after a trap.
+[DESIGN.md](DESIGN.md) specifies ownership, preconditions and source boundaries;
+[COMPATIBILITY.md](COMPATIBILITY.md) records Wasm/JS requirements and tested
+runtimes. [upstream.json](upstream.json) pins the reviewed sources.

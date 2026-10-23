@@ -201,6 +201,16 @@ public:
     // returns the number of property arrays
     size_t n_properties() const { return parrays_.size(); }
 
+    // Inspect names without allocating a copied list (Wasm preflight checks).
+    template <class Predicate>
+    bool any_property(Predicate predicate) const
+    {
+        for (const auto* property : parrays_)
+            if (predicate(std::string_view(property->name())))
+                return true;
+        return false;
+    }
+
     // returns a vector of all property names
     std::vector<std::string> properties() const
     {

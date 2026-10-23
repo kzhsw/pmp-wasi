@@ -1,6 +1,6 @@
 // Run after building: node examples/core.mjs. File loading is caller-side only.
 import { readFile } from 'node:fs/promises';
-import { instantiate, meshView, attributeView, Property, Domain, Winding } from '../src/index.js';
+import { instantiate, meshView, attributeView, Property, Domain, Winding, Algorithm } from '../src/index.js';
 
 const pmp = await instantiate(await readFile(new URL('../build/pmp-core.wasm', import.meta.url)));
 const mesh = pmp.pmp_mesh_create();
@@ -27,6 +27,13 @@ attributeView(pmp, mesh, 'user:colors', Property.RGBA8, Domain.VERTEX, true).fil
 attributeView(pmp, mesh, 'user:matricesIndices', Property.VEC4U16, Domain.VERTEX, true).fill(0);
 const weights = attributeView(pmp, mesh, 'user:matricesWeights', Property.VEC4F, Domain.VERTEX, true);
 for (let v = 0; v < 3; ++v) weights[v * 4] = 1;
+// Smoothing preserves all these channels; this triangle's boundary stays fixed.
+if (pmp.pmp_mesh_unsupported_properties(mesh, Algorithm.EXPLICIT_SMOOTH) !== 0)
+  throw new Error('Unsupported attached attributes');
+pmp.pmp_explicit_smoothing(mesh, 3, 1);
+// Topology-changing calls have stricter transfer rules. This reports 2 because
+// the custom halfedge UV sets cannot be transferred by decimation.
+console.log('Decimation unsupported domains:', pmp.pmp_mesh_unsupported_properties(mesh, Algorithm.DECIMATE));
 pmp.pmp_vertex_normals(mesh);
 console.log(attributeView(pmp, mesh, 'v:normal', Property.VEC3F));
 
