@@ -5,11 +5,20 @@
   "description": "Freestanding, single-threaded WebAssembly bindings for PMP algorithms, built with wasi-sdk.",
   "type": "module",
   "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "bench": "node scripts/bench.mjs",
+    "fixtures": "node scripts/native-fixture.mjs"
+  },
+  "engines": { "node": ">=22" },
   "files": [
     "include/pmp.h",
     "DESIGN.md",
     "upstream.json",
-    "wasm-exports.json"
+    "wasm-exports.json",
+    "exports/core.json",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "keywords": ["pmp", "mesh", "wasm", "wasi-sdk", "geometry"]
 }

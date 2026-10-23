@@ -12,6 +12,8 @@
   "pmp_mesh_add_face",
   "pmp_mesh_add_vertices",
   "pmp_mesh_add_faces",
+  "pmp_mesh_add_faces_winding",
+  "pmp_mesh_add_triangles",
   "pmp_mesh_garbage_collection",
   "pmp_mesh_get_view",
   "pmp_mesh_property",

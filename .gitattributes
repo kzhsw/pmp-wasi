@@ -1,0 +1,5 @@
+# Preserve pinned vendor bytes, including upstream line endings and license text.
+vendor/** -text
+vendor/eigen/** -whitespace
+# A unified diff's empty context lines intentionally contain one space.
+vendor/*.patch -whitespace

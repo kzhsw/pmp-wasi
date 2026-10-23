@@ -1,9 +1,12 @@
 # pmp-wasi v1 design
 
-Status: reviewed for implementation; ABI version 1 remains provisional.
-The declarations in [include/pmp.h](include/pmp.h) are the proposed contract, not
-an implemented or released ABI. Freeze ABI version 1 after implementation and
-validation against this document.
+Status: implementation started; ABI version 1 remains provisional.
+The initial development module reports ABI 0 and implements mesh ownership,
+construction, properties, normals and feature detection. Its exact exports are
+in [exports/core.json](exports/core.json). The declarations in
+[include/pmp.h](include/pmp.h) describe the proposed full contract; declarations
+outside the core manifest are not implemented. Freeze ABI version 1 after full
+implementation and validation against this document.
 
 ## Scope and source boundary
 
@@ -17,10 +20,12 @@ mesh/matrix ownership and storage operations are necessary supporting API.
 The reviewed PMP revision is `215975ca1efafab97477b18187a4a23b87529036`
 (project version 3.0.0); its bundled Eigen is 5.0.1. The xatlas-wasi reference is
 `7cf8877decce7cc63f48d91e94ee7410a77402c0`. Exact source paths are recorded in
-[upstream.json](upstream.json). Future vendored inputs contain the allowlisted core, algorithm
+[upstream.json](upstream.json). Vendored inputs contain the allowlisted core, algorithm
 headers/sources, necessary Eigen headers, and license notices.
 
-Build `surface_mesh.cpp` and the 19 listed algorithm translation units directly.
+The full build will compile `surface_mesh.cpp` and the 19 listed algorithm translation units directly.
+The initial core compiles only `surface_mesh.cpp`, `normals.cpp`, and `features.cpp`,
+plus the two binding/runtime files.
 Do not invoke upstream's top-level CMake: `src/pmp/CMakeLists.txt` unconditionally
 includes `io/CMakeLists.txt`, and also searches for OpenMP. The following never
 enter our build or npm payload:
@@ -122,7 +127,10 @@ through a `Float32Array`. `pmp_mesh_add_vertices` is a bulk `new_vertex` loop th
 avoids one JS-to-Wasm call per vertex; it does not accept/copy a position buffer.
 `pmp_mesh_add_faces` is a bulk version of `add_face` with polygon index spans and
 offsets already in Wasm memory. Topology construction still builds PMP's native
-connectivity; the binding makes no intermediate index-vector copy.
+connectivity; the binding makes no intermediate index-vector copy. All polygon
+corners must be distinct live vertex indices. Range checks are linear; triangle
+and quad uniqueness is checked cheaply. Larger polygons require caller-validated
+uniqueness, avoiding quadratic scans or a copied sorting buffer.
 
 PMP stores halfedges, not a flat render index array. Expose its actual storage:
 
@@ -164,7 +172,7 @@ Allow explicit property removal so callers can release optional results or
 selection masks. Core properties cannot be removed. Algorithm scratch names,
 including `v:locked` and `e:locked`, are reserved: they are not persistent input
 constraints. Keep temporary properties private and ensure successful repeated
-algorithm calls clean them up. User properties should use a distinct prefix.
+algorithm calls clean them up. Custom properties must use the `user:` prefix.
 
 Upstream boolean properties use `std::vector<bool>`, which has no portable
 contiguous bool buffer. Replace **property** bool storage with uint8 storage
@@ -179,6 +187,45 @@ float64 diagonal. Coordinate conversion functions perform their explicitly
 requested float32/float64 and layout conversions; ordinary position access
 does not call them.
 
+### Additional attributes and winding
+
+Multiple UV sets are separate vec2f channels, such as `user:uv0` and `user:uv1`.
+Colors can use vec4f or packed RGBA8. Skinning uses vec4u16/vec4u32
+`user:matricesIndices` and vec4f `user:matricesWeights`; additional groups of four
+influences use additional channels. The binding does not convert colors, normalize
+weights, or treat integer joint IDs as interpolatable scalars. Each property
+remains one contiguous native buffer with its declared component type.
+
+Use vertex properties for shared vertex data and halfedge properties for
+per-corner UVs, colors, or normals. A corner belongs to the halfedge's **target**
+vertex. Bulk triangle and polygon construction accept a CW/CCW flag. CW reverses
+index traversal in the native accessor, without a reversed input buffer; CCW
+preserves traversal. This is an explicit convention, not orientation detection
+or a change of coordinate handedness. Neighboring faces must still be oriented
+consistently and satisfy PMP's manifold requirements.
+
+An optional caller-owned output maps each original input corner to its native
+halfedge, including for CW input. JS can scatter each channel through this map
+using direct typed-array writes, with no per-corner Wasm calls. Input indices,
+polygon offsets and mapping output must be independent allocations, outside mesh
+storage. Allocate all properties first, then reacquire views before filling them.
+Packed render vertices that duplicate positions for seams remain distinct PMP
+vertices unless the caller explicitly supplies shared topological indices; the
+binding does not weld positions implicitly.
+
+Storage support does not imply automatic attribute transfer through every
+algorithm. The initial normals/features operations preserve custom properties.
+Reserve and garbage collection follow PMP's property storage movement. Clear
+removes them. Before exposing remeshing, decimation, subdivision, triangulation,
+dual or face reversal, review each operation's transfer semantics. An operation
+must either preserve/remap a channel correctly, apply an explicitly selected
+transfer rule, or reject unsupported attached channels before mutation. Never
+silently default new UVs/colors/skin data. Seam-aware interpolation and merging
+joint-weight pairs belong in native bulk loops when needed; arbitrary JS callbacks
+inside mesh kernels are outside this design. The same review applies to named
+PMP properties and invalidated normals. No interpolation framework is included
+in the initial core.
+
 ### Ownership and invalidation
 
 `pmp_alloc`/`pmp_free` own caller scratch storage with at least 16-byte alignment.
@@ -192,10 +239,13 @@ call may reallocate; bulk face inputs belong in independent scratch storage.
 There are two independent hazards: C++ vector relocation changes the offset,
 and `memory.grow` replaces the JS buffer. Even an allocation on another mesh can
 cause the latter. Construct views from the current `memory.buffer`, reacquire
-descriptors after mutations, and keep no permanently cached heap views. Only
-storage-view getters and direct element edits promise not to allocate; const
-algorithms such as analysis can allocate temporary storage. Mesh counts cannot be changed
-by writing into a descriptor.
+descriptors after mutations, and keep no permanently cached heap views. Only raw C
+storage-view getters (with property creation disabled) and direct element edits
+promise not to allocate; the JS convenience helpers allocate metadata scratch
+and can detach earlier views even during lookups. `meshView` accepts caller
+scratch to avoid that allocation; raw property access accepts a persistent C
+string. Const algorithms such as analysis can allocate temporary storage.
+Mesh counts cannot be changed by writing into a descriptor.
 
 Algorithm entry points require compact indices: live counts must match storage
 sizes for vertices, edges and faces. Several upstream solvers size matrices by
@@ -256,6 +306,12 @@ outside this design. No setjmp/longjmp or JS exception emulation is introduced.
 Internal recoverable solver failures must be tested before accepting a patch.
 
 ### Feasibility evidence
+
+The implemented ABI 0 core builds to 72,725 bytes (24,531 gzip) with SDK 32 and
+Binaryen 129. It exports 27 names including memory, has zero imports/start/init,
+and passes native-reference and storage tests. The build records its size,
+features and actual compiler versions in `build/report.json`. These numbers
+cover mesh construction/properties, normals and feature detection only.
 
 A limited SDK 32 core probe (mesh construction, destruction and position access)
 links and runs with no imports and no initialization call. After Binaryen it is

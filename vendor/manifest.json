@@ -1,0 +1,58 @@
+{
+  "pmp": [
+    {
+      "path": "pmp/algorithms/features.cpp",
+      "original": "bf353fe3183e5a504e764fe7e3d6c6bdc24990992b346a7fd211cf2823af3890",
+      "adapted": "bf353fe3183e5a504e764fe7e3d6c6bdc24990992b346a7fd211cf2823af3890"
+    },
+    {
+      "path": "pmp/algorithms/features.h",
+      "original": "f1279bdde93a514bb93a7ed85ac3f2e4a0167b556b4d9b8cb7daeb0b0924e846",
+      "adapted": "f1279bdde93a514bb93a7ed85ac3f2e4a0167b556b4d9b8cb7daeb0b0924e846"
+    },
+    {
+      "path": "pmp/algorithms/normals.cpp",
+      "original": "3448348160b43caa3119b043015cc2653514947a8105ba3b9324dbca0fac6bda",
+      "adapted": "3448348160b43caa3119b043015cc2653514947a8105ba3b9324dbca0fac6bda"
+    },
+    {
+      "path": "pmp/algorithms/normals.h",
+      "original": "d8d12bbaf95538febf207e02d59629edac047c8b7ea87ebef1aefeb0aeef58fd",
+      "adapted": "d8d12bbaf95538febf207e02d59629edac047c8b7ea87ebef1aefeb0aeef58fd"
+    },
+    {
+      "path": "pmp/error.h",
+      "original": null,
+      "adapted": "ef038fe1359d5b672e77f0f069373983f77ca34bb6e8915d85fe2936066dc1e6"
+    },
+    {
+      "path": "pmp/mat_vec.h",
+      "original": "3d3d9bb508f657d86adc7d6403045f8c18199b271fcfb42c2b5db8a09ebf604f",
+      "adapted": "3e95fdb0b91f6096982e26dfe9c23c20c33aa6e11fa3bbadd54befe00b2feda7"
+    },
+    {
+      "path": "pmp/properties.h",
+      "original": "345d90e411d057eb9f91e9f0b78f3a89c7e505da07aeebce885f2f1cdc549be1",
+      "adapted": "148be5e94c57e14a0d16eff0bc3756657dc4aec8c7ffdd303c340b7511fdf3d2"
+    },
+    {
+      "path": "pmp/surface_mesh.cpp",
+      "original": "91317ed5f873bf234bc930671e8b29d98fea47e69250b3993e7d2b683cea12e5",
+      "adapted": "55085c21e0dbcb00c09a6d6243043f51c3f698a785f9f53ee40f67bb2ca4fb0f"
+    },
+    {
+      "path": "pmp/surface_mesh.h",
+      "original": "62aa29fd1f52be503ff54cad15034ea9ab3e0ac735f48cea35ff6550b252eecb",
+      "adapted": "26195b067a2b5c5c0d2426da8e0ee33ec441e44843ad9ad0e07e576536cc8a3e"
+    },
+    {
+      "path": "pmp/types.h",
+      "original": "e31dd8f1c2cf883eabacf5405265034a70f1f05ef0965770f4ba2515c496056d",
+      "adapted": "e31dd8f1c2cf883eabacf5405265034a70f1f05ef0965770f4ba2515c496056d"
+    }
+  ],
+  "eigen": {
+    "files": 413,
+    "sha256": "e249d8951bf9cea7334a49b17f3db30190e5477f9bd3687b865672b2dcacf0b3"
+  }
+}

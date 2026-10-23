@@ -1,4 +1,5 @@
-/* Proposed wasm32 C ABI. Declarations only; see DESIGN.md before implementation.
+/* Proposed wasm32 C ABI. Only exports/core.json is implemented as development
+ * ABI 0; remaining declarations and ABI 1 are provisional. See DESIGN.md.
  * SPDX-License-Identifier: MIT
  * All pointers address the instance's linear memory. No C++ objects cross ABI.
  * PMP-reported errors / unrecoverable failures trap. Raw pointer validity is
@@ -32,8 +33,10 @@ enum pmp_boundary_handling {
 enum pmp_domain { PMP_VERTEX = 0, PMP_HALFEDGE = 1, PMP_EDGE = 2, PMP_FACE = 3 };
 enum pmp_property_type {
     PMP_BOOL = 0, PMP_I32 = 1, PMP_U32 = 2, PMP_F32 = 3,
-    PMP_F64 = 4, PMP_VEC2F = 5, PMP_VEC3F = 6
+    PMP_F64 = 4, PMP_VEC2F = 5, PMP_VEC3F = 6,
+    PMP_VEC4F = 7, PMP_VEC4U32 = 8, PMP_VEC4U16 = 9, PMP_RGBA8 = 10
 };
+enum pmp_winding { PMP_CCW = 0, PMP_CW = 1 };
 
 /* Read-only native connectivity: 16-byte records, no index-buffer conversion. */
 typedef struct {
@@ -81,17 +84,31 @@ void pmp_mesh_reserve(pmp_mesh *mesh, uint32_t vertices, uint32_t edges,
                       uint32_t faces);
 uint32_t pmp_mesh_add_vertex(pmp_mesh *mesh, const float point[3]);
 uint32_t pmp_mesh_add_triangle(pmp_mesh *mesh, uint32_t a, uint32_t b, uint32_t c);
+/* All corners must be distinct, live vertex indices. Polygon uniqueness is a
+ * caller precondition; only triangles/quads are fully checked for duplicates. */
 uint32_t pmp_mesh_add_face(pmp_mesh *mesh, const uint32_t *vertices, uint32_t count);
 /* Bulk new_vertex(): returns first index; initialize positions through view. */
 uint32_t pmp_mesh_add_vertices(pmp_mesh *mesh, uint32_t count);
 /* offsets[0] == 0; offsets has count + 1 entries; no staging vector copy. */
 void pmp_mesh_add_faces(pmp_mesh *mesh, const uint32_t *vertices,
                         const uint32_t *offsets, uint32_t count);
+/* Normalize input winding to CCW without reversing a copied index buffer.
+ * Optional mapping[source_corner] = native halfedge targeting that corner.
+ * Per-corner UV/color data uses halfedge properties, preserving seams.
+ * Input indices, offsets and mapping must occupy independent storage. */
+void pmp_mesh_add_faces_winding(pmp_mesh *mesh, const uint32_t *vertices,
+                                const uint32_t *offsets, uint32_t count,
+                                uint32_t winding, uint32_t *corner_halfedges);
+void pmp_mesh_add_triangles(pmp_mesh *mesh, const uint32_t *vertices,
+                            uint32_t count, uint32_t winding, uint32_t *corner_halfedges);
 void pmp_mesh_garbage_collection(pmp_mesh *mesh);
 void pmp_mesh_get_view(pmp_mesh *mesh, pmp_mesh_view *out);
 /* Named PMP properties; create=0 returns NULL if absent, create=1 zero-fills a
  * new property. Type mismatch traps. Bool storage is u8 containing 0 or 1.
- * Internal connectivity/deletion properties cannot be accessed through here. */
+ * Internal connectivity/deletion properties cannot be accessed through here.
+ * Custom channels use a user: prefix, e.g. user:uv1, user:colors,
+ * user:matricesIndices, user:matricesWeights. More than four skin influences
+ * use additional four-component channels. Values are not implicitly converted. */
 void *pmp_mesh_property(pmp_mesh *mesh, uint32_t domain, uint32_t type,
                         const char *name, uint32_t create);
 /* Returns 1 if removed, 0 if absent. Core and scratch names are reserved. */

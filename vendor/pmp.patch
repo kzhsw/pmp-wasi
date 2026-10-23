@@ -1,0 +1,434 @@
+--- /dev/null
++++ b/pmp/error.h
+@@ -0,0 +1,6 @@
++// pmp-wasi adaptation. SPDX-License-Identifier: MIT
++#pragma once
++
++namespace pmp {
++[[noreturn]] inline void fail() { __builtin_trap(); }
++}
+--- a/pmp/mat_vec.h
++++ b/pmp/mat_vec.h
+@@ -8,14 +8,13 @@
+ #include <cassert>
+ 
+ #include <array>
+-#include <iostream>
+ #include <limits>
+ #include <initializer_list>
+ #include <numbers>
+ 
+ #include <Eigen/Dense>
+ 
+-#include "pmp/exceptions.h"
++#include "pmp/error.h"
+ 
+ namespace pmp {
+ 
+@@ -379,19 +378,6 @@
+ //! template specialization for a 4x4 matrix of double values
+ using dmat4 = Mat4<double>;
+ 
+-//! output a matrix by printing its space-separated components
+-template <typename Scalar, int M, int N>
+-inline std::ostream& operator<<(std::ostream& os, const Matrix<Scalar, M, N>& m)
+-{
+-    for (int i = 0; i < M; ++i)
+-    {
+-        for (int j = 0; j < N; ++j)
+-            os << m(i, j) << " ";
+-        os << '\n';
+-    }
+-    return os;
+-}
+-
+ //! matrix-matrix multiplication
+ template <typename Scalar, int M, int N, int K>
+ Matrix<Scalar, M, N> operator*(const Matrix<Scalar, M, K>& m1,
+@@ -969,7 +955,7 @@
+     const Scalar det = determinant(m);
+     if (fabs(det) < 1.0e-10 || std::isnan(det))
+     {
+-        throw SolverException("3x3 matrix not invertible");
++        fail();
+     }
+ 
+     Mat3<Scalar> inv;
+@@ -1109,25 +1095,6 @@
+     return false;
+ }
+ 
+-//! read the space-separated components of a vector from a stream
+-template <typename Scalar, int N>
+-inline std::istream& operator>>(std::istream& is, Vector<Scalar, N>& vec)
+-{
+-    for (int i = 0; i < N; ++i)
+-        is >> vec[i];
+-    return is;
+-}
+-
+-//! output a vector by printing its space-separated components
+-template <typename Scalar, int N>
+-inline std::ostream& operator<<(std::ostream& os, const Vector<Scalar, N>& vec)
+-{
+-    for (int i = 0; i < N - 1; ++i)
+-        os << vec[i] << " ";
+-    os << vec[N - 1];
+-    return os;
+-}
+-
+ //! compute the dot product of two vectors
+ template <typename Scalar, int N>
+ inline Scalar dot(const Vector<Scalar, N>& v0, const Vector<Scalar, N>& v1)
+--- a/pmp/properties.h
++++ b/pmp/properties.h
+@@ -7,9 +7,12 @@
+ #include <algorithm>
+ #include <cassert>
+ #include <string>
++#include <string_view>
+ #include <utility>
+ #include <vector>
+-#include "pmp/exceptions.h"
++#include <cstdint>
++#include <type_traits>
++#include "pmp/error.h"
+ 
+ namespace pmp {
+ 
+@@ -18,6 +21,7 @@
+ public:
+     //! Destructor.
+     virtual ~BasePropertyArray() = default;
++    virtual const void* type_id() const = 0;
+ 
+     //! Reserve memory for n elements.
+     virtual void reserve(size_t n) = 0;
+@@ -46,7 +50,10 @@
+ {
+ public:
+     using ValueType = T;
+-    using VectorType = std::vector<ValueType>;
++    using StorageType = std::conditional_t<std::is_same_v<T, bool>, uint8_t, T>;
++    using VectorType = std::vector<StorageType>;
++    static inline constexpr char type_token = 0;
++    const void* type_id() const override { return &type_token; }
+     using reference = typename VectorType::reference;
+     using const_reference = typename VectorType::const_reference;
+ 
+@@ -77,11 +84,11 @@
+         return p;
+     }
+ 
+-    //! Get pointer to array (does not work for T==bool)
+-    const T* data() const { return &data_[0]; }
++    //! Get pointer to contiguous storage, including byte-backed bool properties.
++    const StorageType* data() const { return data_.empty() ? nullptr : data_.data(); }
+ 
+     //! Get reference to the underlying vector
+-    std::vector<T>& vector() { return data_; }
++    VectorType& vector() { return data_; }
+ 
+     //! Access the i'th element. No range check is performed!
+     reference operator[](size_t idx)
+@@ -105,14 +112,6 @@
+     VectorType data_;
+     ValueType value_;
+ };
+-
+-// specialization for bool properties
+-template <>
+-inline const bool* PropertyArray<bool>::data() const
+-{
+-    assert(false);
+-    return nullptr;
+-}
+ 
+ template <class T>
+ class Property
+@@ -142,13 +141,13 @@
+         return (*parray_)[i];
+     }
+ 
+-    const T* data() const
++    const typename PropertyArray<T>::StorageType* data() const
+     {
+         assert(parray_ != nullptr);
+         return parray_->data();
+     }
+ 
+-    std::vector<T>& vector()
++    typename PropertyArray<T>::VectorType& vector()
+     {
+         assert(parray_ != nullptr);
+         return parray_->vector();
+@@ -221,9 +220,7 @@
+         {
+             if (parray->name() == name)
+             {
+-                const auto msg = "[PropertyContainer] A property with name \"" +
+-                                 name + "\" already exists.\n";
+-                throw InvalidInputException(msg);
++                fail();
+             }
+         }
+ 
+@@ -235,7 +232,7 @@
+     }
+ 
+     // do we have a property with a given name?
+-    bool exists(const std::string& name) const
++    bool exists(std::string_view name) const
+     {
+         for (auto parray : parrays_)
+             if (parray->name() == name)
+@@ -245,11 +242,13 @@
+ 
+     // get a property by its name. returns invalid property if it does not exist.
+     template <class T>
+-    Property<T> get(const std::string& name) const
++    Property<T> get(std::string_view name) const
+     {
+         for (auto parray : parrays_)
+             if (parray->name() == name)
+-                return Property<T>(dynamic_cast<PropertyArray<T>*>(parray));
++                return Property<T>(parray->type_id() == &PropertyArray<T>::type_token
++                                       ? static_cast<PropertyArray<T>*>(parray)
++                                       : nullptr);
+         return Property<T>();
+     }
+ 
+@@ -280,6 +279,19 @@
+         }
+     }
+ 
++    // Remove one named property without allocating a name buffer.
++    bool remove(std::string_view name)
++    {
++        for (auto it = parrays_.begin(); it != parrays_.end(); ++it)
++            if ((*it)->name() == name)
++            {
++                delete *it;
++                parrays_.erase(it);
++                return true;
++            }
++        return false;
++    }
++
+     // delete all properties
+     void clear()
+     {
+--- a/pmp/surface_mesh.cpp
++++ b/pmp/surface_mesh.cpp
+@@ -216,7 +216,19 @@
+ 
+ Face SurfaceMesh::add_face(const std::vector<Vertex>& vertices)
+ {
+-    const size_t n(vertices.size());
++    return add_face_indices(vertices.size(), [&](size_t i) { return vertices[i]; });
++}
++
++Face SurfaceMesh::add_face(const uint32_t* indices, size_t count, bool reverse)
++{
++    return add_face_indices(count, [&](size_t i) {
++        return Vertex(indices[reverse ? count - 1 - i : i]);
++    });
++}
++
++template <class IndexAt>
++Face SurfaceMesh::add_face_indices(size_t n, IndexAt vertex_at)
++{
+     assert(n > 2);
+ 
+     Vertex v;
+@@ -241,19 +253,17 @@
+     // test for topological errors
+     for (i = 0, ii = 1; i < n; ++i, ++ii, ii %= n)
+     {
+-        if (!is_boundary(vertices[i]))
++        if (!is_boundary(vertex_at(i)))
+         {
+-            auto what = "SurfaceMesh::add_face: Complex vertex.";
+-            throw TopologyException(what);
++            fail();
+         }
+ 
+-        halfedges[i] = find_halfedge(vertices[i], vertices[ii]);
++        halfedges[i] = find_halfedge(vertex_at(i), vertex_at(ii));
+         is_new[i] = !halfedges[i].is_valid();
+ 
+         if (!is_new[i] && !is_boundary(halfedges[i]))
+         {
+-            auto what = "SurfaceMesh::add_face: Complex edge.";
+-            throw TopologyException(what);
++            fail();
+         }
+     }
+ 
+@@ -287,9 +297,7 @@
+                 // ok ?
+                 if (boundary_next == inner_next)
+                 {
+-                    auto what =
+-                        "SurfaceMesh::add_face: Patch re-linking failed.";
+-                    throw TopologyException(what);
++                    fail();
+                 }
+ 
+                 // other halfedges' handles
+@@ -309,7 +317,7 @@
+     {
+         if (is_new[i])
+         {
+-            halfedges[i] = new_edge(vertices[i], vertices[ii]);
++            halfedges[i] = new_edge(vertex_at(i), vertex_at(ii));
+         }
+     }
+ 
+@@ -320,7 +328,7 @@
+     // setup halfedges
+     for (i = 0, ii = 1; i < n; ++i, ++ii, ii %= n)
+     {
+-        v = vertices[ii];
++        v = vertex_at(ii);
+         inner_prev = halfedges[i];
+         inner_next = halfedges[ii];
+ 
+@@ -385,7 +393,7 @@
+     {
+         if (needs_adjust[i])
+         {
+-            adjust_outgoing_halfedge(vertices[i]);
++            adjust_outgoing_halfedge(vertex_at(i));
+         }
+     }
+ 
+--- a/pmp/surface_mesh.h
++++ b/pmp/surface_mesh.h
+@@ -7,20 +7,18 @@
+ #include <cassert>
+ #include <cstddef>
+ #include <compare>
+-#include <filesystem>
+ #include <iterator>
+-#include <ostream>
+ #include <string>
+ #include <utility>
+ #include <vector>
+ 
+ #include "pmp/types.h"
+ #include "pmp/properties.h"
+-#include "pmp/exceptions.h"
++#include "pmp/error.h"
+ 
+ namespace pmp {
+ 
+-struct IOFlags;
++struct WasmAccess;
+ 
+ //! \addtogroup core
+ //!@{
+@@ -75,32 +73,6 @@
+ {
+     using Handle::Handle;
+ };
+-
+-// Output operators
+-
+-//! output a Vertex to a stream
+-inline std::ostream& operator<<(std::ostream& os, Vertex v)
+-{
+-    return (os << 'v' << v.idx());
+-}
+-
+-//! output a Halfedge to a stream
+-inline std::ostream& operator<<(std::ostream& os, Halfedge h)
+-{
+-    return (os << 'h' << h.idx());
+-}
+-
+-//! output an Edge to a stream
+-inline std::ostream& operator<<(std::ostream& os, Edge e)
+-{
+-    return (os << 'e' << e.idx());
+-}
+-
+-//! output a Face to a stream
+-inline std::ostream& operator<<(std::ostream& os, Face f)
+-{
+-    return (os << 'f' << f.idx());
+-}
+ 
+ // Property Types
+ 
+@@ -1164,6 +1136,7 @@
+     //! \throw TopologyException in case a topological error occurs.
+     //! \sa add_triangle, add_quad
+     Face add_face(const std::vector<Vertex>& vertices);
++    Face add_face(const uint32_t* indices, size_t count, bool reverse = false);
+ 
+     //! add a new triangle connecting vertices \p v0, \p v1, \p v2
+     //! \sa add_face, add_quad
+@@ -1869,9 +1842,7 @@
+     {
+         if (vertices_size() == PMP_MAX_INDEX - 1)
+         {
+-            auto what =
+-                "SurfaceMesh: cannot allocate vertex, max. index reached";
+-            throw AllocationException(what);
++            fail();
+         }
+         vprops_.push_back();
+         return Vertex(static_cast<IndexType>(vertices_size()) - 1);
+@@ -1883,8 +1854,7 @@
+     {
+         if (halfedges_size() == PMP_MAX_INDEX - 1)
+         {
+-            auto what = "SurfaceMesh: cannot allocate edge, max. index reached";
+-            throw AllocationException(what);
++            fail();
+         }
+ 
+         eprops_.push_back();
+@@ -1907,8 +1877,7 @@
+ 
+         if (halfedges_size() == PMP_MAX_INDEX - 1)
+         {
+-            auto what = "SurfaceMesh: cannot allocate edge, max. index reached";
+-            throw AllocationException(what);
++            fail();
+         }
+ 
+         eprops_.push_back();
+@@ -1930,8 +1899,7 @@
+     {
+         if (faces_size() == PMP_MAX_INDEX - 1)
+         {
+-            auto what = "SurfaceMesh: cannot allocate face, max. index reached";
+-            throw AllocationException(what);
++            fail();
+         }
+ 
+         fprops_.push_back();
+@@ -1941,6 +1909,9 @@
+     //!@}
+ 
+ private:
++    template <class IndexAt>
++    Face add_face_indices(size_t count, IndexAt vertex_at);
++
+     struct VertexConnectivity
+     {
+         // an outgoing halfedge per vertex (it will be a boundary halfedge
+@@ -1974,10 +1945,7 @@
+     // are there any deleted entities?
+     inline bool has_garbage() const { return has_garbage_; }
+ 
+-    // io functions that need access to internal details
+-    friend void read_pmp(SurfaceMesh&, const std::filesystem::path&);
+-    friend void write_pmp(const SurfaceMesh&, const std::filesystem::path&,
+-                          const IOFlags&);
++    friend struct WasmAccess;
+ 
+     // property containers for each entity type and object
+     PropertyContainer vprops_;
