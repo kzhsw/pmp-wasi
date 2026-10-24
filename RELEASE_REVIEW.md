@@ -1,10 +1,17 @@
 # 0.1.0 release review
 
-The 0.1.0 package metadata is finalized for publication, including npm installation
-instructions and links to the `main` branch at https://github.com/kzhsw/pmp-wasi.
-Push and publication are separate from this review. Follow
-[RELEASING.md](RELEASING.md) before publishing, including rechecking the final
-tarball if metadata changes.
+[pmp-wasi@0.1.0](https://www.npmjs.com/package/pmp-wasi/v/0.1.0) was published on
+2026-10-24 and is the npm `latest` version. The registry tarball was downloaded
+and verified byte for byte against the tested artifact; its SHA-256 and npm
+integrity match. Source is available at the public `v0.1.0` tag.
+
+The [web demo](https://kzhsw.github.io/pmp-wasi/) is live. Its deployed application,
+worker, Wasm, styles, HTML, provenance and license index match the reviewed build.
+All 29 browser scenarios / 57,695 assertions passed against the live HTTPS site,
+with no browser errors or unexpected external requests.
+
+These publication notes do not change the release tag or archived artifacts.
+Follow [RELEASING.md](RELEASING.md) for future releases.
 
 ## Reviewed changes
 
@@ -29,7 +36,7 @@ tarball if metadata changes.
   verified Wasm, with a manual-only Pages workflow. Demo source, bundled SDK and
   rendering code are outside the npm runtime payload.
 
-## Candidate measurements
+## Release measurements
 
 | Artifact | Size |
 | --- | ---: |
@@ -43,7 +50,7 @@ tarball if metadata changes.
 Wasm SHA-256:
 `9fcd942785a90b43f86047a08a5deed449a80031276ffac1eb9134bf76fbe7ad`
 
-Candidate `pmp-wasi-0.1.0.tgz` SHA-256:
+Published `pmp-wasi-0.1.0.tgz` SHA-256:
 `d28d361831e4b1aece650dca77e76a8892576ec0a51a35130fed07769cddb6c2`
 
 The artifact has zero imports, no start/init, no retained IO/printf/thread or
