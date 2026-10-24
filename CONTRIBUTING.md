@@ -87,3 +87,13 @@ in `vendor/pmp.patch`. Verify numerical fallback behavior, large polygons,
 attribute ownership, winding, degenerate inputs and shared glTF graph objects.
 Review code before committing and follow [RELEASING.md](RELEASING.md) for a
 release candidate.
+
+## Web demo
+
+`npm run demo` builds and serves the local demo; `npm run build:demo` writes its
+static site and `npm run test:demo` tests that exact build in Chromium. The demo
+uses pinned esbuild 0.28.1 from development dependencies or `ESBUILD_MODULE`.
+It reuses the reviewed `demo/pmp.wasm` snapshot, verified against source hashes,
+instead of invoking a C++ compiler. Refresh the snapshot and its `wasm.json`
+provenance together after a native build change. See [DEMO.md](DEMO.md) for
+behavior, limits and the manual Pages workflow. The demo remains outside npm.

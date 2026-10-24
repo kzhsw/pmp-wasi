@@ -6,6 +6,11 @@ there is no version negotiation or compatibility layer. Proposed APIs are not
 packaged or callable. wasm32 pointers and indices are unsigned 32-bit offsets; native scalar
 positions are float32, while Eigen operators and solvers remain float64.
 
+The standalone web demo has additional browser requirements: WebGL 2, module
+workers and CSP support for `wasm-unsafe-eval`. It is tested in current Chromium
+and does not claim the core's Chrome 75 baseline. See the
+[demo guide](https://github.com/kzhsw/pmp-wasi/blob/main/DEMO.md).
+
 ## Chrome 75 target
 
 The build now targets **Chrome 75 and later**, including Chrome 76, by enforcing

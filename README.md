@@ -17,6 +17,10 @@ Install **0.1.0 / ABI 1**:
 npm install pmp-wasi
 ```
 
+The [web demo](https://github.com/kzhsw/pmp-wasi/blob/main/DEMO.md) lets you drop a
+local model, apply transforms, preview geometry and download a GLB. It can run
+locally or be deployed through the manual GitHub Pages workflow.
+
 ## Load the module
 
 In Node.js 22 or later:

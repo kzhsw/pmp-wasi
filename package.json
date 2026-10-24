@@ -21,7 +21,10 @@
     "profile:gltf": "node --expose-gc scripts/gltf-profile.mjs",
     "prepack": "node scripts/package.mjs",
     "package": "node scripts/package.mjs --pack",
-    "test:package": "node scripts/package-e2e.mjs"
+    "test:package": "node scripts/package-e2e.mjs",
+    "demo": "node scripts/demo.mjs --serve",
+    "build:demo": "node scripts/demo.mjs",
+    "test:demo": "node scripts/demo-e2e.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -55,7 +58,8 @@
   ],
   "devDependencies": {
     "@gltf-transform/core": "4.5.1",
-    "@gltf-transform/extensions": "4.5.1"
+    "@gltf-transform/extensions": "4.5.1",
+    "esbuild": "0.28.1"
   },
   "exports": {
     ".": {
