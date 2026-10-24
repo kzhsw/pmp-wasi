@@ -88,6 +88,24 @@ attribute ownership, winding, degenerate inputs and shared glTF graph objects.
 Review code before committing and follow [RELEASING.md](RELEASING.md) for a
 release candidate.
 
+## GitHub Actions
+
+[CI](.github/workflows/ci.yml) runs one job on pull requests, pushes to `main`
+and manual dispatch. It builds and audits Wasm, runs unit tests on Node 22,
+checks C/C++ headers and TypeScript declarations, then tests core, glTF, the
+packed npm package and the demo in Node 24 and the runner's Chrome. The glTF
+run uses 16 reproducible fuzz seeds. Reports are retained for seven days.
+
+The Ubuntu 24.04 runner caches checksum-pinned WASI SDK 32/Binaryen 129 archives
+and native output keyed by native inputs, build scripts and workflow. Cached
+Wasm still passes the unit and packaging audits. The runner reuses its installed
+Chrome. Actions are commit-pinned and use Node 24;
+test-only Playwright/TypeScript installations stay outside the package. New
+commits cancel superseded checks, and the job has a ten-minute limit. There is
+no scheduled run, platform matrix, upstream recompilation, sanitizer build,
+extended fuzz campaign, memory profiling or benchmarking in automatic CI;
+those remain local/release checks. CI does not publish packages or deploy Pages.
+
 ## Web demo
 
 `npm run demo` builds and serves the local demo; `npm run build:demo` writes its
@@ -97,3 +115,5 @@ It reuses the reviewed `demo/pmp.wasm` snapshot, verified against source hashes,
 instead of invoking a C++ compiler. Refresh the snapshot and its `wasm.json`
 provenance together after a native build change. See [DEMO.md](DEMO.md) for
 behavior, limits and the manual Pages workflow. The demo remains outside npm.
+The Pages workflow reuses CI and deploys its tested site artifact, so there is
+one shared set of build and test steps.

@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      pages-artifact:
+        description: Upload the checked demo for the manual Pages deployment
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Build and test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Cache pinned toolchain archives
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/pmp-toolchains/archives
+          key: linux-x64-wasi-sdk-32.0-binaryen-129-v1
+      - name: Prepare WASI SDK 32 and Binaryen 129
+        run: |
+          toolchains="$RUNNER_TEMP/pmp-toolchains"
+          mkdir -p "$toolchains/archives"
+          cd "$toolchains/archives"
+          sdk=wasi-sdk-32.0-x86_64-linux.tar.gz
+          binaryen=binaryen-version_129-x86_64-linux.tar.gz
+          if [[ ! -f "$sdk" ]]; then
+            curl --fail --location --retry 3 --connect-timeout 15 --max-time 180 \
+              "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-32/$sdk" -o "$sdk"
+          fi
+          if [[ ! -f "$binaryen" ]]; then
+            curl --fail --location --retry 3 --connect-timeout 15 --max-time 180 \
+              "https://github.com/WebAssembly/binaryen/releases/download/version_129/$binaryen" -o "$binaryen"
+          fi
+          sha256sum --check <<'SUMS'
+          55fc523ebfbc98f69d1034fcfcb83d1ff5610cd9ab7eceef6cd097a30ba4ef93  wasi-sdk-32.0-x86_64-linux.tar.gz
+          50b9fa62b9abea752da92ec57e0c555fee578760cd237c40107957715d2976ba  binaryen-version_129-x86_64-linux.tar.gz
+          SUMS
+          tar -xzf "$sdk" -C "$toolchains"
+          tar -xzf "$binaryen" -C "$toolchains"
+          echo "WASI_SDK_PATH=$toolchains/wasi-sdk-32.0-x86_64-linux" >> "$GITHUB_ENV"
+          echo "BINARYEN_PATH=$toolchains/binaryen-version_129" >> "$GITHUB_ENV"
+
+      - name: Cache the native build
+        id: wasm
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            build/pmp-core.wasm
+            build/report.json
+            build/core.map
+          key: linux-x64-wasm-sdk32-binaryen129-${{ hashFiles('.github/workflows/ci.yml', 'src/*.cpp', 'src/*.hpp', 'include/pmp.h', 'vendor/**', 'exports/core.json', 'wasm-exports.json', 'scripts/build.mjs', 'scripts/vendor.mjs', 'scripts/wasm.mjs') }}
+      - name: Build and audit Wasm
+        if: steps.wasm.outputs.cache-hit != 'true'
+        run: npm run build
+      - name: Unit tests on Node 22
+        run: npm test
+      - name: Check C and C++ headers
+        run: |
+          for header in include/pmp.h design/pmp-proposed.h; do
+            "$WASI_SDK_PATH/bin/clang" -x c -std=c11 -Wall -Wextra -Werror -fsyntax-only "$header"
+            "$WASI_SDK_PATH/bin/clang++" -x c++ -std=c++20 -Wall -Wextra -Werror -fsyntax-only "$header"
+          done
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - name: Prepare test tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pmp-test-tools" --no-package-lock \
+            --ignore-scripts --no-audit --no-fund playwright@1.59.1 typescript@5.9.3
+          tools="$RUNNER_TEMP/pmp-test-tools/node_modules"
+          # Use the hosted image's Chrome; do not install another browser.
+          chrome=$(command -v google-chrome)
+          echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE=$chrome" >> "$GITHUB_ENV"
+          echo "PLAYWRIGHT_MODULE=$tools/playwright" >> "$GITHUB_ENV"
+          echo "TSC=$tools/typescript/bin/tsc" >> "$GITHUB_ENV"
+          echo "ESBUILD_MODULE=$GITHUB_WORKSPACE/node_modules/esbuild" >> "$GITHUB_ENV"
+      - name: TypeScript declarations
+        run: |
+          node "$TSC" --noEmit --strict --module nodenext --moduleResolution nodenext \
+            --target es2022 --lib es2022,dom,esnext.float16 src/index.d.ts src/gltf-transform.d.ts
+      - name: Core Node and browser tests
+        run: npm run test:e2e
+      - name: glTF Node and browser tests
+        run: npm run test:gltf -- --seeds 16
+      - name: Verify and test the npm package
+        run: |
+          npm run package
+          package_file=$(node -p "'build/release/' + require('./build/release/package.json').filename")
+          npm run test:package -- "$package_file"
+      - name: Build and test the web demo
+        run: |
+          cmp build/pmp-core.wasm demo/pmp.wasm
+          npm run build:demo
+          npm run test:demo
+
+      - name: Upload Pages artifact
+        if: inputs.pages-artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: build/demo
+          include-hidden-files: true
+      - name: Keep check reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: check-reports
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            build/report.json
+            build/e2e-report.json
+            build/gltf-e2e-report.json
+            build/package-e2e-report.json
+            build/release/package.json
+            build/demo-build-report.json
+            build/demo-e2e-report.json
+            build/demo-e2e/failure.png

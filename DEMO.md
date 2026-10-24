@@ -36,9 +36,10 @@ The demo has a checked-in copy of the reviewed production `pmp.wasm`, together
 with `demo/wasm.json` recording its hashes and provenance. Building checks the
 binary, ABI, imports, source hashes, wrapper hashes and vendor tree. Native source
 changes require rebuilding with the existing toolchains and refreshing both
-files from the verified package staging output. The Pages build uses this snapshot
-and does not install a C++ toolchain. Demo files and esbuild are excluded from
-the library's runtime dependencies and npm payload.
+files from the verified package staging output. The local demo command needs no
+C++ toolchain. GitHub Actions rebuilds Wasm with the pinned toolchain and checks
+that it matches this snapshot before testing and uploading the site. Demo files
+and esbuild are excluded from the library's runtime dependencies and npm payload.
 
 ## Manual GitHub Pages deployment
 
@@ -48,10 +49,13 @@ After pushing the source to GitHub:
 2. In **Actions → Deploy web demo**, choose **Run workflow** on `main`.
 3. Open the deployment URL reported by the `github-pages` environment.
 
-The workflow is triggered only by `workflow_dispatch`, and accepts `main` only.
-It installs locked development packages, builds and verifies the site, uploads a
-Pages artifact and deploys it. It does not publish an npm package or run on pushes
-or pull requests. The deployment job has the Pages and identity-token permissions
+The deployment workflow is triggered only by `workflow_dispatch`, and accepts
+`main` only. It calls the same [CI workflow](.github/workflows/ci.yml) used for
+pull requests and pushes, then deploys the checked Pages artifact. Checks use
+read-only repository permissions; only the deployment job has write permissions.
+It does not publish an npm package or deploy on pushes or pull requests. Both
+workflows use Ubuntu 24.04 and Node 24 actions. The deployment job has the Pages
+and identity-token permissions
 required by GitHub's [custom workflow procedure](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 The generated site includes complete native and bundled JavaScript license notices.
 
